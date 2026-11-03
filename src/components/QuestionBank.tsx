@@ -56,7 +56,9 @@ export default function QuestionBank({
   onNavigateToModule,
   onDatabaseMutated
 }: QuestionBankProps) {
-  const [subTab, setSubTab] = useState<"questions" | "peer_annotated">("questions");
+  const [subTab, setSubTab] = useState<
+    "questions" | "peer_annotated" | "data_pipeline"
+  >("questions");
   const [selectedCompany, setSelectedCompany] = useState<string>("All");
   const [selectedRound, setSelectedRound] = useState<string>("All");
   const [revealedIds, setRevealedIds] = useState<Record<string, boolean>>({});
@@ -70,6 +72,12 @@ export default function QuestionBank({
   });
   const [questions, setQuestions] = useState<CompanyQuestionItem[]>(COMPANY_QUESTION_BANK);
   const [dbSynced, setDbSynced] = useState(false);
+  const [ingestingFeed, setIngestingFeed] = useState(false);
+  const [ingestStatus, setIngestStatus] = useState<string | null>(null);
+  const [rawPostText, setRawPostText] = useState(
+    "Just finished my Databricks L6 Staff System Design round yesterday.\nPrompt: Design a multi-tenant Delta Lake serverless query scheduler and small-file compaction service handling 50k concurrent SQL queries without S3 optimistic lock starvation."
+  );
+  const [extSimStatus, setExtSimStatus] = useState<string | null>(null);
 
   // Hydrate from SQLite question_bank table
   useEffect(() => {
@@ -107,7 +115,19 @@ export default function QuestionBank({
     defended_tradeoffs: false
   });
 
-  const companies = ["All", "OpenAI", "Stripe", "Uber", "Anthropic", "Meta", "Google"];
+  const companies = [
+    "All",
+    "OpenAI",
+    "Stripe",
+    "Uber",
+    "Anthropic",
+    "Meta",
+    "Google",
+    "Databricks",
+    "Netflix",
+    "Airbnb",
+    "Apple"
+  ];
   const rounds = ["All", "System Design", "Coding", "AI Architecture"];
 
   const filtered = questions.filter((q) => {
@@ -115,6 +135,88 @@ export default function QuestionBank({
     const matchRound = selectedRound === "All" || q.roundType === selectedRound;
     return matchCompany && matchRound;
   });
+
+  const handleSyncLiveFeed = async () => {
+    setIngestingFeed(true);
+    setIngestStatus("Syncing public HN / Reddit / LeetCode Discuss onsite feed...");
+    try {
+      const res = await fetch("/api/ingest-questions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "live_feed" })
+      });
+      const data = await res.json();
+      if (data.ok && Array.isArray(data.questions)) {
+        setQuestions(data.questions);
+        const map: Record<string, number> = {};
+        data.questions.forEach((q: CompanyQuestionItem) => {
+          map[q.id] = q.upvotes ?? 25;
+        });
+        setUpvotes(map);
+        setIngestStatus(
+          data.ingestedCount > 0
+            ? `✓ Ingested ${data.ingestedCount} new verified onsite reports into SQLite!`
+            : "✓ Feed up to date — all latest community questions already in SQLite."
+        );
+        onDatabaseMutated?.();
+      }
+    } catch {
+      setIngestStatus("Could not reach ingestion endpoint.");
+    } finally {
+      setIngestingFeed(false);
+    }
+  };
+
+  const handleExtractRawPost = async () => {
+    if (!rawPostText.trim()) return;
+    setIngestingFeed(true);
+    try {
+      const res = await fetch("/api/ingest-questions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "extract_raw", rawText: rawPostText })
+      });
+      const data = await res.json();
+      if (data.ok && Array.isArray(data.questions)) {
+        setQuestions(data.questions);
+        setIngestStatus(
+          `✓ Extracted & saved "${data.newQuestions?.[0]?.questionTitle}" to SQLite!`
+        );
+        onDatabaseMutated?.();
+      }
+    } catch {
+      setIngestStatus("Extraction failed.");
+    } finally {
+      setIngestingFeed(false);
+    }
+  };
+
+  const handleSimulateExtensionClip = async () => {
+    setExtSimStatus("Sending POST /api/extension/clip...");
+    try {
+      const res = await fetch("/api/extension/clip", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: "job_clip",
+          company: "Anthropic",
+          title: "Staff Distributed Inference Systems Engineer",
+          url: "https://boards.greenhouse.io/anthropic/jobs/inference-systems",
+          jdText:
+            "Anthropic is hiring a Staff Distributed Systems Engineer (L6) to scale our multi-tenant GPU inference clusters, KV-cache routing, Redis token-bucket rate limiting, Rust/Python services, and Kubernetes observability."
+        })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setExtSimStatus(
+          `✓ Clipped "${data.jobCard.company} — ${data.jobCard.role}" to SQLite Kanban CRM with ${data.atsScore}% ATS Match!`
+        );
+        onDatabaseMutated?.();
+      }
+    } catch {
+      setExtSimStatus("Extension simulation failed.");
+    }
+  };
 
   const handleUpvote = async (questionId: string) => {
     setUpvotes((prev) => ({
@@ -198,7 +300,7 @@ export default function QuestionBank({
           </h1>
         </div>
 
-        <div className="flex items-center gap-1.5 bg-slate-950 p-1.5 rounded-xl border border-slate-800">
+        <div className="flex flex-wrap items-center gap-1.5 bg-slate-950 p-1.5 rounded-xl border border-slate-800">
           <button
             onClick={() => setSubTab("questions")}
             className={`px-3.5 py-2 rounded-lg text-xs font-semibold cursor-pointer ${
@@ -207,7 +309,7 @@ export default function QuestionBank({
                 : "text-slate-400 hover:text-slate-200"
             }`}
           >
-            1. Verified Company Questions ({questions.length})
+            1. Verified Questions ({questions.length})
           </button>
           <button
             onClick={() => setSubTab("peer_annotated")}
@@ -218,7 +320,18 @@ export default function QuestionBank({
             }`}
           >
             <Users className="w-3.5 h-3.5" />
-            <span>2. Annotated Walkthrough & Peer Rubric</span>
+            <span>2. Annotated Walkthrough & Peer Mode</span>
+          </button>
+          <button
+            onClick={() => setSubTab("data_pipeline")}
+            className={`px-3.5 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 cursor-pointer ${
+              subTab === "data_pipeline"
+                ? "bg-indigo-600 text-white"
+                : "text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>3. Live Scraper & Chrome Clipper</span>
           </button>
         </div>
       </div>
@@ -226,6 +339,18 @@ export default function QuestionBank({
       {/* TAB 1: CROWDSOURCED COMPANY QUESTIONS */}
       {subTab === "questions" && (
         <div className="space-y-5">
+          {ingestStatus && (
+            <div className="p-3 rounded-xl bg-emerald-950/30 border border-emerald-500/40 text-xs text-emerald-200 flex items-center justify-between">
+              <span>{ingestStatus}</span>
+              <button
+                onClick={() => setIngestStatus(null)}
+                className="text-slate-400 hover:text-white text-[11px] cursor-pointer"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2">
               <div className="flex items-center gap-1.5 bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-800">
@@ -259,13 +384,26 @@ export default function QuestionBank({
               </div>
             </div>
 
-            <button
-              onClick={() => setShowAddForm(!showAddForm)}
-              className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Submit Interview Question</span>
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={handleSyncLiveFeed}
+                disabled={ingestingFeed}
+                className="px-3.5 py-1.5 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-200 text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                <span>
+                  {ingestingFeed ? "Syncing Feed..." : "Sync Live Onsite Feed"}
+                </span>
+              </button>
+
+              <button
+                onClick={() => setShowAddForm(!showAddForm)}
+                className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Submit Question</span>
+              </button>
+            </div>
           </div>
 
           {showAddForm && (
@@ -508,6 +646,126 @@ export default function QuestionBank({
                 ? "Hire / Strong Hire"
                 : "Needs Deeper Trade-off Defense"}
               )
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 3: LIVE DATA INGESTION PIPELINE & CHROME EXTENSION CLIPPER */}
+      {subTab === "data_pipeline" && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+          {/* Left 7 Cols: Live Scraper & Unstructured Post Extractor */}
+          <div className="lg:col-span-7 bg-slate-900/60 border border-slate-800 rounded-2xl p-5 space-y-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-400">
+                  Proprietary Data Moat #1
+                </span>
+                <h3 className="text-base font-bold text-white mt-0.5">
+                  Automated Interview Experience Scraper & Extractor
+                </h3>
+              </div>
+              <button
+                onClick={handleSyncLiveFeed}
+                disabled={ingestingFeed}
+                className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-xs font-semibold text-white flex items-center gap-1.5 cursor-pointer"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>{ingestingFeed ? "Ingesting..." : "Run Live Feed Sync"}</span>
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Commercial platforms stay ahead by continuously ingesting fresh onsite reports from{" "}
+              <strong className="text-slate-200">
+                Hacker News Algolia API, r/ExperiencedDevs, r/leetcode, and Blind
+              </strong>{" "}
+              and converting raw unstructured threads into calibrated SQLite rows.
+            </p>
+
+            {ingestStatus && (
+              <div className="p-3 rounded-xl bg-emerald-950/30 border border-emerald-500/40 text-xs text-emerald-200">
+                {ingestStatus}
+              </div>
+            )}
+
+            <div className="space-y-2.5 pt-2 border-t border-slate-800">
+              <label className="block text-xs font-bold text-indigo-300">
+                Paste Unstructured Reddit / Blind / LeetCode Discuss Post:
+              </label>
+              <textarea
+                value={rawPostText}
+                onChange={(e) => setRawPostText(e.target.value)}
+                rows={4}
+                className="w-full rounded-xl bg-slate-950 border border-slate-800 p-3 text-xs text-slate-200 leading-relaxed focus:outline-none focus:border-indigo-500"
+              />
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[11px] text-slate-500">
+                  Auto-detects company, L4–L6 level, round type, and committee rubric signal.
+                </span>
+                <button
+                  onClick={handleExtractRawPost}
+                  disabled={ingestingFeed}
+                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white cursor-pointer"
+                >
+                  Extract & Insert into SQLite
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Right 5 Cols: Chrome Extension Clipper & API Simulator */}
+          <div className="lg:col-span-5 bg-slate-900/60 border border-slate-800 rounded-2xl p-5 space-y-4 flex flex-col justify-between">
+            <div className="space-y-3">
+              <div>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-cyan-400">
+                  Proprietary Workflow Moat #2
+                </span>
+                <h3 className="text-base font-bold text-white mt-0.5">
+                  1-Click Chrome Extension Clipper
+                </h3>
+              </div>
+
+              <p className="text-xs text-slate-400 leading-relaxed">
+                A Manifest V3 browser extension is included in your repository at{" "}
+                <code className="text-cyan-300">chrome-extension/</code>. Highlight any Job Description on{" "}
+                <strong className="text-slate-200">
+                  LinkedIn, Greenhouse, Workday, or Lever
+                </strong>{" "}
+                to clip it straight into your SQLite Kanban CRM with a live ATS match score.
+              </p>
+
+              <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-2 text-xs text-slate-300">
+                <div className="font-bold text-white">How to Load in Chrome / Brave / Edge:</div>
+                <ol className="list-decimal list-inside space-y-1 text-slate-400">
+                  <li>
+                    Open <code className="text-indigo-300">chrome://extensions</code> and enable{" "}
+                    <strong className="text-slate-200">Developer mode</strong>.
+                  </li>
+                  <li>
+                    Click <strong className="text-slate-200">Load unpacked</strong> and select the{" "}
+                    <code className="text-cyan-300">chrome-extension/</code> folder.
+                  </li>
+                  <li>
+                    Highlight any JD or onsite post and click{" "}
+                    <strong className="text-slate-200">Clip to InterviewOS SQLite DB</strong>.
+                  </li>
+                </ol>
+              </div>
+            </div>
+
+            <div className="space-y-2.5 pt-3 border-t border-slate-800">
+              {extSimStatus && (
+                <div className="p-2.5 rounded-xl bg-cyan-950/30 border border-cyan-500/40 text-xs text-cyan-200">
+                  {extSimStatus}
+                </div>
+              )}
+              <button
+                onClick={handleSimulateExtensionClip}
+                className="w-full py-2.5 rounded-xl bg-cyan-600/20 hover:bg-cyan-600/30 border border-cyan-500/40 text-xs font-semibold text-cyan-200 cursor-pointer"
+              >
+                Simulate 1-Click Extension Clip (/api/extension/clip)
+              </button>
             </div>
           </div>
         </div>

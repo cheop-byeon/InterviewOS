@@ -15,6 +15,7 @@ import {
   VolumeX
 } from "lucide-react";
 import { CODING_PROBLEMS } from "../lib/data/mockInterviewData";
+import { COMPANY_INSIDER_RUBRICS } from "../lib/data/companyRubrics";
 import { SYSTEM_DESIGN_PROBLEMS } from "../lib/data/systemDesignProblems";
 import {
   generateInterviewScorecard,
@@ -66,6 +67,13 @@ export default function MockInterviewStudio({
   const [codeLanguage, setCodeLanguage] = useState<"javascript" | "python">(
     "javascript"
   );
+  const [selectedCompanyLoopId, setSelectedCompanyLoopId] =
+    useState<string>("stripe");
+  const [showInsiderRubric, setShowInsiderRubric] = useState<boolean>(false);
+
+  const activeCompanyRubric =
+    COMPANY_INSIDER_RUBRICS.find((r) => r.id === selectedCompanyLoopId) ||
+    COMPANY_INSIDER_RUBRICS[0];
 
   useEffect(() => {
     if (!initialTopicId) return;
@@ -217,7 +225,12 @@ export default function MockInterviewStudio({
       contextTitle
     );
 
-    let aiReplyText = localTurn.reply;
+    const companyProbe =
+      activeCompanyRubric.followUpProbes[
+        (turnCount - 1) % activeCompanyRubric.followUpProbes.length
+      ];
+
+    let aiReplyText = `${localTurn.reply}\n\n**[${activeCompanyRubric.company} ${targetLevel} Bar Probe]:** ${companyProbe}`;
 
     if (llmConfig.mode !== "hybrid_local" && llmConfig.apiKey.trim()) {
       try {
@@ -227,13 +240,12 @@ export default function MockInterviewStudio({
           body: JSON.stringify({
             provider: llmConfig.mode,
             apiKey: llmConfig.apiKey,
-            systemPrompt: `You are a FAANG ${targetLevel} interviewer conducting a ${mode} interview on "${contextTitle}". Resume context: ${resumeText.slice(
+            systemPrompt: `${activeCompanyRubric.interviewerPersonaPrompt} Conducting a ${targetLevel} ${mode} interview on "${contextTitle}". Must-hit rubric signals: ${activeCompanyRubric.mustHitSignals.join(
+              "; "
+            )}. Resume context: ${resumeText.slice(0, 350)}. JD context: ${jdText.slice(
               0,
-              400
-            )}. JD context: ${jdText.slice(
-              0,
-              400
-            )}. Acknowledge the candidate's point in 1 sentence, then ask 1 sharp follow-up question.`,
+              350
+            )}. Acknowledge the candidate's point in 1 sentence, then ask 1 sharp company-calibrated follow-up question.`,
             userPrompt: userText
           })
         });
@@ -344,7 +356,11 @@ export default function MockInterviewStudio({
         <div>
           <h1 className="text-lg font-bold text-white">Live AI Mock Interview Studio</h1>
           <p className="text-xs text-slate-400 mt-0.5">
-            Calibrated to <strong className="text-indigo-300">{targetLevel}</strong> hiring committee rubrics.
+            Calibrated to{" "}
+            <strong className="text-indigo-300">
+              {activeCompanyRubric.company} ({targetLevel})
+            </strong>{" "}
+            — {activeCompanyRubric.loopStyleName}
           </p>
         </div>
 
@@ -370,6 +386,74 @@ export default function MockInterviewStudio({
             </button>
           ))}
         </div>
+      </div>
+
+      {/* Company-Specific Insider Rubric Bar (Hello Interview / Bar Raiser Moat) */}
+      <div className="bg-slate-900/50 border border-slate-800/90 rounded-2xl p-4 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mr-1">
+              Company Loop Persona:
+            </span>
+            {COMPANY_INSIDER_RUBRICS.map((rubric) => (
+              <button
+                key={rubric.id}
+                onClick={() => setSelectedCompanyLoopId(rubric.id)}
+                className={`px-3 py-1 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
+                  selectedCompanyLoopId === rubric.id
+                    ? rubric.badgeColor
+                    : "bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                {rubric.company}
+              </button>
+            ))}
+          </div>
+
+          <button
+            onClick={() => setShowInsiderRubric(!showInsiderRubric)}
+            className="px-3 py-1 rounded-xl bg-slate-950 border border-indigo-500/30 text-xs font-semibold text-indigo-300 hover:bg-indigo-950/30 cursor-pointer"
+          >
+            {showInsiderRubric
+              ? "Hide Insider Grading Rubric"
+              : `Inspect ${activeCompanyRubric.company} ${targetLevel} Rubric & Red Flags`}
+          </button>
+        </div>
+
+        {showInsiderRubric && (
+          <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3 text-xs">
+            <p className="text-slate-300 leading-relaxed">
+              <strong className="text-white">{activeCompanyRubric.company} Philosophy:</strong>{" "}
+              {activeCompanyRubric.corePhilosophy}
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="p-3 rounded-xl bg-emerald-950/20 border border-emerald-500/30 space-y-1.5">
+                <div className="font-bold text-emerald-300 uppercase text-[10px]">
+                  Must-Hit Hiring Signals ({targetLevel})
+                </div>
+                <ul className="space-y-1 text-slate-300 list-disc list-inside">
+                  {activeCompanyRubric.mustHitSignals.map((sig) => (
+                    <li key={sig}>{sig}</li>
+                  ))}
+                </ul>
+              </div>
+              <div className="p-3 rounded-xl bg-rose-950/20 border border-rose-500/30 space-y-1.5">
+                <div className="font-bold text-rose-300 uppercase text-[10px]">
+                  Auto-Downgrade / No-Hire Red Flags
+                </div>
+                <ul className="space-y-1 text-slate-300 list-disc list-inside">
+                  {activeCompanyRubric.autoFailRedFlags.map((flag) => (
+                    <li key={flag}>{flag}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+            <div className="p-2.5 rounded-lg bg-indigo-950/25 border border-indigo-500/30 text-indigo-200">
+              <strong>{targetLevel} Calibration Bar:</strong>{" "}
+              {activeCompanyRubric.levelBarDiff[targetLevel]}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* IF SCORECARD IS GENERATED: SHOW FOCUSED SCORECARD VIEW */}

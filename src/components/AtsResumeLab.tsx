@@ -15,6 +15,7 @@ import {
   XCircle
 } from "lucide-react";
 import { RESUME_JD_PRESETS } from "../lib/data/mockInterviewData";
+import { ATS_VENDOR_PROFILES, AtsVendorProfile } from "../lib/data/companyRubrics";
 import { analyzeResumeAgainstJD } from "../lib/engines/atsEngine";
 import { ActiveTab } from "../lib/types";
 
@@ -43,12 +44,42 @@ export default function AtsResumeLab({
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
   const [layoutWarning, setLayoutWarning] = useState<string | null>(null);
   const [savingScan, setSavingScan] = useState(false);
+  const [selectedVendorId, setSelectedVendorId] =
+    useState<AtsVendorProfile["id"]>("greenhouse");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const scanResult = useMemo(
     () => analyzeResumeAgainstJD(resumeText, jdText),
     [resumeText, jdText]
   );
+
+  const activeVendor = useMemo(
+    () =>
+      ATS_VENDOR_PROFILES.find((v) => v.id === selectedVendorId) ||
+      ATS_VENDOR_PROFILES[1],
+    [selectedVendorId]
+  );
+
+  const vendorCalibratedScore = useMemo(() => {
+    const w = activeVendor.weights;
+    let raw =
+      scanResult.hardSkillMatchPct * w.hardSkillWeight +
+      scanResult.architectureMatchPct * w.architectureWeight +
+      scanResult.impactMetricScore * w.impactWeight +
+      scanResult.parsabilityScore * w.parsabilityWeight;
+
+    // Apply vendor-specific strict parser penalties
+    if (activeVendor.strictChecks.penalizeMultiColumn && layoutWarning) {
+      raw -= 8;
+    }
+    if (
+      activeVendor.strictChecks.requireAcronymExpansion &&
+      !resumeText.includes("(")
+    ) {
+      raw -= 4;
+    }
+    return Math.max(25, Math.min(99, Math.round(raw)));
+  }, [scanResult, activeVendor, layoutWarning, resumeText]);
 
   const handleSaveScanSnapshot = async () => {
     setSavingScan(true);
@@ -203,23 +234,24 @@ export default function AtsResumeLab({
           <div className="w-14 h-14 rounded-2xl bg-slate-950 border border-slate-800 flex flex-col items-center justify-center shrink-0">
             <span
               className={`text-lg font-extrabold ${
-                scanResult.overallScore >= 82
+                vendorCalibratedScore >= 82
                   ? "text-emerald-400"
-                  : scanResult.overallScore >= 68
+                  : vendorCalibratedScore >= 68
                   ? "text-amber-400"
                   : "text-rose-400"
               }`}
             >
-              {scanResult.overallScore}%
+              {vendorCalibratedScore}%
             </span>
             <span className="text-[9px] uppercase tracking-wider text-slate-500 font-semibold">
-              ATS Match
+              {activeVendor.id}
             </span>
           </div>
           <div>
             <h1 className="text-lg font-bold text-white">ATS & Resume Optimizer</h1>
             <p className="text-xs text-slate-400 mt-0.5">
-              Target Role: <strong className="text-slate-200">{scanResult.detectedRole}</strong> ({scanResult.detectedLevel})
+              Target Role: <strong className="text-slate-200">{scanResult.detectedRole}</strong> ({scanResult.detectedLevel}) • Calibrated for{" "}
+              <strong className="text-indigo-300">{activeVendor.name}</strong>
             </p>
           </div>
         </div>
@@ -288,6 +320,58 @@ export default function AtsResumeLab({
                 <span className={`text-sm font-bold ${stat.color}`}>{stat.val}%</span>
               </div>
             ))}
+          </div>
+
+          {/* Enterprise ATS Vendor Parser Simulator (Workday / Greenhouse / Lever / Taleo) */}
+          <div className="p-4 rounded-2xl bg-slate-900/70 border border-slate-800 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-400">
+                  Corporate ATS Vendor Parser Calibration (Jobscan Moat)
+                </span>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Simulate how specific corporate ATS engines parse and weight your resume:
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {ATS_VENDOR_PROFILES.map((vendor) => (
+                  <button
+                    key={vendor.id}
+                    onClick={() => setSelectedVendorId(vendor.id)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                      selectedVendorId === vendor.id
+                        ? "bg-indigo-600 text-white shadow-sm"
+                        : "bg-slate-950 border border-slate-800 text-slate-400 hover:text-slate-200"
+                    }`}
+                  >
+                    {vendor.name.split(" ")[0]}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="p-3 rounded-xl bg-slate-950/90 border border-slate-800/90 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+              <div className="space-y-1">
+                <div className="text-slate-200 font-semibold">
+                  {activeVendor.name}{" "}
+                  <span className="text-slate-500 font-normal">
+                    — Used by {activeVendor.usedByCompanies.join(", ")}
+                  </span>
+                </div>
+                <p className="text-slate-400 leading-relaxed">{activeVendor.parsingBehavior}</p>
+                <p className="text-emerald-300/90 text-[11px]">
+                  <strong>Insider Recruiter Tip:</strong> {activeVendor.recruiterTip}
+                </p>
+              </div>
+              <div className="shrink-0 text-right bg-slate-900 px-3.5 py-2.5 rounded-xl border border-slate-800">
+                <div className="text-[10px] uppercase text-slate-400 font-semibold">
+                  {activeVendor.name.split(" ")[0]} Score
+                </div>
+                <div className="text-lg font-extrabold text-indigo-300">
+                  {vendorCalibratedScore}%
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* File Upload + PDF Export + Preset Switcher */}
