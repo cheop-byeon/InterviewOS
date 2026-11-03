@@ -81,6 +81,7 @@ function extractStructuredQuestionFromRawText(rawText: string, sourceHint?: stri
   const lower = rawText.toLowerCase();
 
   const knownCompanies = [
+    "Revolut",
     "FINN.no",
     "Vend",
     "Blocket",

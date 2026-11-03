@@ -509,6 +509,125 @@ def top_k_frequent(nums: list, k: int) -> list:
         runnerCodePy: `top_k_frequent([4,4,4,6,6,1], 1)`
       }
     ]
+  },
+  {
+    id: "revolut_load_balancer",
+    title: "Revolut Live TDD: Thread-Safe Load Balancer Registry (O(1) Round-Robin)",
+    pattern: "Array + HashSet Index / Atomic Round-Robin / Revolut Famous Live Coding",
+    difficulty: "Medium",
+    companies: ["Revolut (Europe & Nordics)", "Cloudflare", "Stripe", "Uber"],
+    prompt:
+      "Revolut's #1 most-asked 60-minute Live TDD Coding screen: Implement an in-memory LoadBalancer with `maxCapacity` (e.g., 10 instances), `register(address)` (rejects duplicates and rejects if full), `unregister(address)` in O(1), and `nextRoundRobin()` returning the next active server address deterministically.",
+    examples: [
+      {
+        input: "lb = new LoadBalancer(2); lb.register('10.0.0.1'); lb.register('10.0.0.2'); [lb.nextRoundRobin(), lb.nextRoundRobin(), lb.nextRoundRobin()]",
+        output: "[\"10.0.0.1\",\"10.0.0.2\",\"10.0.0.1\"]",
+        explanation: "Cycles through registered instances in round-robin order and rejects duplicate or over-capacity registrations."
+      }
+    ],
+    starterCode: `class LoadBalancer {
+  constructor(maxCapacity = 10) {
+    this.maxCapacity = maxCapacity;
+    this.instances = [];
+    this.indexMap = new Map(); // address -> array index for O(1) removal
+    this.cursor = 0;
+  }
+
+  register(address) {
+    if (!address || this.indexMap.has(address) || this.instances.length >= this.maxCapacity) {
+      return false;
+    }
+    this.indexMap.set(address, this.instances.length);
+    this.instances.push(address);
+    return true;
+  }
+
+  unregister(address) {
+    if (!this.indexMap.has(address)) return false;
+    const idx = this.indexMap.get(address);
+    const lastIdx = this.instances.length - 1;
+    const lastAddress = this.instances[lastIdx];
+
+    // Swap-with-last for O(1) removal without shifting whole array
+    this.instances[idx] = lastAddress;
+    this.indexMap.set(lastAddress, idx);
+    this.instances.pop();
+    this.indexMap.delete(address);
+    if (this.instances.length > 0) {
+      this.cursor = this.cursor % this.instances.length;
+    } else {
+      this.cursor = 0;
+    }
+    return true;
+  }
+
+  nextRoundRobin() {
+    if (this.instances.length === 0) return null;
+    const picked = this.instances[this.cursor % this.instances.length];
+    this.cursor = (this.cursor + 1) % this.instances.length;
+    return picked;
+  }
+}`,
+    starterCodePy: `class LoadBalancer:
+    def __init__(self, max_capacity: int = 10):
+        self.max_capacity = max_capacity
+        self.instances: list[str] = []
+        self.index_map: dict[str, int] = {}
+        self.cursor = 0
+
+    def register(self, address: str) -> bool:
+        if not address or address in self.index_map or len(self.instances) >= self.max_capacity:
+            return False
+        self.index_map[address] = len(self.instances)
+        self.instances.append(address)
+        return True
+
+    def unregister(self, address: str) -> bool:
+        if address not in self.index_map:
+            return False
+        idx = self.index_map[address]
+        last_address = self.instances[-1]
+        self.instances[idx] = last_address
+        self.index_map[last_address] = idx
+        self.instances.pop()
+        del self.index_map[address]
+        self.cursor = (self.cursor % len(self.instances)) if self.instances else 0
+        return True
+
+    def next_round_robin(self) -> str | None:
+        if not self.instances:
+            return None
+        picked = self.instances[self.cursor % len(self.instances)]
+        self.cursor = (self.cursor + 1) % len(self.instances)
+        return picked
+`,
+    optimalSolution: `// In Java 21 / Kotlin (Revolut's stack), guard mutations with ReentrantReadWriteLock and use AtomicInteger for the round-robin cursor.`,
+    timeComplexity: "O(1) for register(), unregister() (swap-with-last), and nextRoundRobin()",
+    spaceComplexity: "O(maxCapacity) for array + index map",
+    keyInsights: [
+      "Revolut interviewers evaluate strict TDD: write unit tests for capacity limits, duplicate rejection, empty state, and round-robin wrap-around FIRST.",
+      "In Java/Kotlin, explain why `ReentrantReadWriteLock` (multiple concurrent readers in `nextRoundRobin()` + `AtomicInteger.getAndIncrement()`, exclusive write lock only on `register`/`unregister`) beats a coarse `synchronized` method."
+    ],
+    testCases: [
+      {
+        input: "Round-robin across 2 nodes: 10.0.0.1, 10.0.0.2",
+        expected: "[\"10.0.0.1\",\"10.0.0.2\",\"10.0.0.1\"]",
+        runnerCodeJs: `const lb = new LoadBalancer(2); lb.register("10.0.0.1"); lb.register("10.0.0.2"); return [lb.nextRoundRobin(), lb.nextRoundRobin(), lb.nextRoundRobin()];`,
+        runnerCodePy: `(lambda lb: (lb.register("10.0.0.1"), lb.register("10.0.0.2"), [lb.next_round_robin(), lb.next_round_robin(), lb.next_round_robin()])[2])(LoadBalancer(2))`
+      },
+      {
+        input: "Reject duplicate & over-capacity registration (cap=2)",
+        expected: "[true,false,true,false]",
+        runnerCodeJs: `const lb = new LoadBalancer(2); return [lb.register("10.0.0.1"), lb.register("10.0.0.1"), lb.register("10.0.0.2"), lb.register("10.0.0.3")];`,
+        runnerCodePy: `(lambda lb: [lb.register("10.0.0.1"), lb.register("10.0.0.1"), lb.register("10.0.0.2"), lb.register("10.0.0.3")])(LoadBalancer(2))`
+      },
+      {
+        input: "Unregister node 10.0.0.1 -> only 10.0.0.2 remains",
+        expected: "\"10.0.0.2\"",
+        runnerCodeJs: `const lb = new LoadBalancer(3); lb.register("10.0.0.1"); lb.register("10.0.0.2"); lb.unregister("10.0.0.1"); return lb.nextRoundRobin();`,
+        runnerCodePy: `(lambda lb: (lb.register("10.0.0.1"), lb.register("10.0.0.2"), lb.unregister("10.0.0.1"), lb.next_round_robin())[3])(LoadBalancer(3))`
+      }
+    ]
   }
 ];
 
@@ -837,6 +956,54 @@ export const COMPANY_QUESTION_BANK: CompanyQuestionItem[] = [
       "Vision-LLM structured output extraction (Pydantic AI / vLLM) + Vespa hybrid vector/attribute kNN price lookup + synchronous risk-score gate before Kafka `AdPublished` event.",
     linkedModule: "system_design",
     linkedTopicId: "finn_vend_schibsted"
+  },
+  {
+    id: "q_revolut_1",
+    company: "Revolut",
+    role: "Backend / Distributed Systems",
+    level: "L5",
+    roundType: "System Design",
+    questionTitle: "Design Revolut Multi-Currency FX Exchange (30s Quote Lock) & Deadlock-Free Double-Entry Ledger (Europe / Nordics)",
+    details:
+      "Revolut System Design Loop: Allow 50M+ European & Nordic users to convert SEK/NOK/EUR/GBP at a guaranteed 30-second live FX rate and execute instant P2P transfers with zero floating-point drift, zero deadlocks, and daily SEPA/Swish reconciliation.",
+    askedAgo: "Asked 1 day ago • Stockholm / London / Remote",
+    frequency: "High Frequency",
+    keyRubricSignal:
+      "Append-only Double-Entry Ledger (`DEBIT`+`CREDIT`=0) in integer minor units + deterministic sorted `SELECT ... FOR UPDATE` (`min(accA,accB)` first) + Redis 30s quote lock.",
+    linkedModule: "system_design",
+    linkedTopicId: "revolut_multicurrency_ledger"
+  },
+  {
+    id: "q_revolut_2",
+    company: "Revolut",
+    role: "Backend / Distributed Systems",
+    level: "L5",
+    roundType: "Coding",
+    questionTitle: "Revolut Live TDD Coding: Implement Thread-Safe In-Memory Load Balancer & Money Transfer Service",
+    details:
+      "Revolut's signature 60-minute live pairing screen: Build a Load Balancer supporting `register`, `unregister`, and `nextRoundRobin` (max 10 instances, no duplicates) in pure Java/Kotlin/Python/TS using strict TDD (write unit tests first!) and fine-grained thread locks.",
+    askedAgo: "Asked 2 days ago • Europe / Nordics",
+    frequency: "Verified Onsite",
+    keyRubricSignal:
+      "Write failing unit tests FIRST (TDD), use Array + HashMap index swap-with-last for O(1) removal, and guard concurrent access with `ReentrantReadWriteLock` + `AtomicInteger`.",
+    linkedModule: "mock_interview",
+    linkedTopicId: "revolut_load_balancer"
+  },
+  {
+    id: "q_revolut_3",
+    company: "Revolut",
+    role: "Backend / Distributed Systems",
+    level: "L6",
+    roundType: "System Design",
+    questionTitle: "Design Cross-Border Banking Saga Orchestrator & Automated Daily External Rail Reconciliation",
+    details:
+      "Revolut Principal/Staff Loop: What happens when a user transfers 25,000 SEK to an external Eurozone IBAN via SEPA Instant, the local wallet debit succeeds, but the partner banking gateway times out mid-flight?",
+    askedAgo: "Asked 3 days ago • London / Stockholm",
+    frequency: "Verified Onsite",
+    keyRubricSignal:
+      "Never hold 2PC locks across external bank APIs: move funds to an internal Suspense Ledger Account via Saga Orchestrator, poll/webhook idempotency status, and run T+0 reconciliation.",
+    linkedModule: "system_design",
+    linkedTopicId: "revolut_multicurrency_ledger"
   }
 ];
 
@@ -968,6 +1135,20 @@ export const INITIAL_JOB_CARDS: JobApplicationCard[] = [
     updatedAt: "Today • Oslo / Stockholm",
     linkedProblemId: "finn_vend_schibsted",
     notes: "Loop via Jobylon ATS: 1) 60m TDD Pair Programming / Case Review (Kotlin/TS), 2) System Design (FINN Fiks Ferdig & VG Varnish Edge), 3) Autonomous Squad Values Round."
+  },
+  {
+    id: "job_8_revolut",
+    company: "Revolut (Nordics & Europe Remote)",
+    role: "Senior Backend Engineer — Core Payments & FX Ledger (Java 21 / Kotlin)",
+    level: "L5",
+    compensation: "€130k – €175k + Equity (Europe's #1 Private Tech Co)",
+    stage: "oa_screen",
+    atsMatchScore: 91,
+    mockReadinessScore: 89,
+    nextAction: "Practice Revolut Live TDD Load Balancer & Multi-Currency FX Ledger",
+    updatedAt: "Today • Stockholm / London / Remote",
+    linkedProblemId: "revolut_multicurrency_ledger",
+    notes: "Revolut Loop: 1) 60m Live TDD Coding (Load Balancer / Money Transfer — write unit tests first, zero Spring magic!), 2) System Design (Double-Entry FX Ledger), 3) Bar Raiser."
   }
 ];
 

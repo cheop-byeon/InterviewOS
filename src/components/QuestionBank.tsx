@@ -23,7 +23,7 @@ interface QuestionBankProps {
 }
 
 const WALKTHROUGH_DECKS: Record<
-  "finn_vg" | "spotify" | "wolt" | "stripe",
+  "revolut" | "finn_vg" | "spotify" | "wolt" | "stripe",
   {
     title: string;
     subtitle: string;
@@ -36,6 +36,40 @@ const WALKTHROUGH_DECKS: Record<
     }[];
   }
 > = {
+  revolut: {
+    title: "Revolut (Europe/Nordics L5/L6 Loop) — Live TDD Load Balancer & Double-Entry FX Ledger",
+    subtitle:
+      "Europe's largest private tech company ($45B–$115B valuation) runs one of the most distinctive engineering loops in Europe: strict TDD without frameworks + Double-Entry FinTech Architecture:",
+    steps: [
+      {
+        timestamp: "01:45",
+        speaker: "Revolut Interviewer (Core Payments — London / Stockholm / Vilnius)",
+        transcript:
+          "Welcome to the Live Coding round. Build an in-memory LoadBalancer that registers up to 10 backend instances, rejects duplicates, and routes traffic via Round-Robin. Please share your screen—we expect strict TDD in pure Java 21 / Kotlin / Python without Spring Boot.",
+        committeeAnnotation:
+          "Revolut Live Coding Rule #1: Jumping straight into implementation without writing a failing unit test first is the #1 reason strong engineers fail this round.",
+        badge: "Strict TDD Gate"
+      },
+      {
+        timestamp: "03:10",
+        speaker: "Candidate (L5 Senior Backend — Offer Accepted)",
+        transcript:
+          "I'll start in `LoadBalancerTest` by writing our first failing test: `shouldRejectRegistrationWhenCapacityExceeded()` and `shouldRejectDuplicateAddress()`. For O(1) registration and O(1) removal, I'll pair an ArrayList with a HashMap mapping each address to its array index, and guard `register/unregister` with a `ReentrantReadWriteLock` while using `AtomicInteger` for lock-free Round-Robin cursor increments.",
+        committeeAnnotation:
+          "Strong Hire Signal: Writes unit tests first, avoids O(N) list removal by swapping with the tail element, and separates read concurrency from write locks.",
+        badge: "Exceeds Bar"
+      },
+      {
+        timestamp: "34:20",
+        speaker: "Candidate (System Design Round — Multi-Currency FX Transfer)",
+        transcript:
+          "For a 10,000 SEK -> EUR conversion, we never run `UPDATE accounts SET balance = balance - X` with floats. First, we atomically consume the 30-second Redis `quote_id` lock. Second, inside PostgreSQL via jOOQ, we acquire `SELECT ... FOR UPDATE` locks sorted deterministically by `account_id` (to make bidirectional A<->B deadlocks impossible) and append two immutable Double-Entry Ledger rows (`DEBIT` SEK, `CREDIT` EUR) in integer minor units.",
+        committeeAnnotation:
+          "Strong Hire Verdict: Hits all three Revolut non-negotiables: Double-Entry immutability, integer minor units, and deterministic lock ordering.",
+        badge: "Strong Hire Signal"
+      }
+    ]
+  },
   finn_vg: {
     title: "FINN.no / Vend & VG.no (Oslo/Stockholm L5 Loop) — Varnish Edge & Fiks Ferdig Escrow",
     subtitle:
@@ -176,6 +210,17 @@ const WALKTHROUGH_DECKS: Record<
 
 const APPLICANT_FEEDBACK_REPORTS = [
   {
+    company: "Revolut (Nordics Branch — Stockholm / London / Remote Europe)",
+    role: "Senior Backend Engineer (Java 21 / Kotlin / Python)",
+    outcome: "Offer Accepted (€155k + Equity — Europe's #1 Private Tech Co)",
+    loopSummary:
+      "Recruiter Screen -> 60m Live TDD Pair Coding (Load Balancer / Money Transfer in pure Java/Kotlin/Python — NO Spring Boot!) -> 60m System Design (Multi-Currency FX Quote Lock & Double-Entry Ledger) -> Bar Raiser ('Never Settle' Execution Round).",
+    whatWorked:
+      "Writing unit tests BEFORE writing a single line of business logic in the Live Coding round, using `ReentrantReadWriteLock` + `AtomicInteger` for thread-safety, and explaining deterministic lock ordering (`min(accA, accB)`) + Double-Entry Ledger rows in System Design.",
+    watchOutFor:
+      "Do NOT use `float`/`double` for money, do NOT rely on Spring `@Autowired` magic in the coding round, and do NOT write implementation code before writing unit tests—Revolut grades strict TDD discipline."
+  },
+  {
     company: "FINN.no / Vend (Blocket, Tori) & Schibsted (VG, Aftonbladet)",
     role: "Senior Backend / Platform Engineer (Kotlin, Go, TypeScript)",
     outcome: "Offer Accepted (1.12M NOK + Bonus + 7% Pension — Oslo / Stockholm)",
@@ -259,8 +304,8 @@ export default function QuestionBank({
   );
   const [extSimStatus, setExtSimStatus] = useState<string | null>(null);
   const [selectedWalkthrough, setSelectedWalkthrough] = useState<
-    "finn_vg" | "spotify" | "wolt" | "stripe"
-  >("finn_vg");
+    "revolut" | "finn_vg" | "spotify" | "wolt" | "stripe"
+  >("revolut");
 
   // Hydrate from SQLite question_bank table
   useEffect(() => {
@@ -299,6 +344,7 @@ export default function QuestionBank({
   });
 
   const nordicSet = new Set([
+    "Revolut",
     "FINN.no / Vend",
     "Blocket / Tori (Vend)",
     "VG / Schibsted",
@@ -312,6 +358,7 @@ export default function QuestionBank({
   const companies = [
     "All",
     "Nordic Hub (All)",
+    "Revolut",
     "FINN.no / Vend",
     "Blocket / Tori (Vend)",
     "VG / Schibsted",
@@ -773,6 +820,7 @@ export default function QuestionBank({
                 <div className="flex gap-1.5">
                   {(
                     [
+                      { id: "revolut", label: "Revolut (EU/Nordics)" },
                       { id: "finn_vg", label: "FINN / Vend & VG" },
                       { id: "spotify", label: "Spotify (Stockholm)" },
                       { id: "wolt", label: "Wolt (Helsinki)" },

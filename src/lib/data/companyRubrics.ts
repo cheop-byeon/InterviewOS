@@ -265,6 +265,37 @@ export const COMPANY_INSIDER_RUBRICS: CompanyRubricProfile[] = [
       L5: "Senior Engineer: Owns end-to-end domain services (Search, Fiks Ferdig Escrow, Schibsted Account SSO) and defends caching/consistency trade-offs.",
       L6: "Staff / Principal Architect: Aligns cross-country platform architecture across FINN, Blocket, Tori, and DBA using Data Mesh contracts and Golden Paths."
     }
+  },
+  {
+    id: "revolut_europe",
+    company: "Revolut (Europe & Nordics)",
+    loopStyleName: "Strict TDD Live Coding (No Frameworks) & Multi-Currency Double-Entry Ledger",
+    badgeColor: "bg-sky-500/20 text-sky-200 border-sky-400/40",
+    corePhilosophy:
+      "As Europe's largest private tech company ($45B–$115B valuation, 50M+ users, expanding across Sweden, Norway, Finland & Denmark), Revolut is famous for zero-fluff engineering: pure Java 21 / Kotlin / Python with jOOQ (no heavy Spring Boot magic), strict Test-Driven Development (write unit tests first!), thread-safety, and immutable Double-Entry Ledgers.",
+    interviewerPersonaPrompt:
+      "You are a Principal Core Banking & FX Architect at Revolut (Europe / Nordics). Probe the candidate relentlessly on thread-safety (`ReadWriteLock`, `ConcurrentHashMap`, deadlock-free sorted `SELECT ... FOR UPDATE`), 30-second FX quote locking, integer minor-unit arithmetic, and append-only Double-Entry Ledgers.",
+    mustHitSignals: [
+      "Append-only Double-Entry Ledger (`DEBIT` + `CREDIT` rows summing to 0) using 64-bit integer minor units",
+      "Deadlock prevention on bidirectional transfers via deterministic lexicographical lock ordering (`min(accA, accB)` first)",
+      "30-second locked FX Quote token (`quote_id` in Redis) consumed atomically with client `Idempotency-Key`",
+      "Strict TDD mindset in live coding: write failing unit tests first, clean DDD domain objects, thread-safe state"
+    ],
+    autoFailRedFlags: [
+      "Updating account balances in place (`UPDATE accounts SET balance = ...`) without immutable double-entry journal rows",
+      "Using `float` or `double` for currency or FX conversion rates",
+      "Locking two accounts in arbitrary request order (causes instant PostgreSQL deadlock when A->B and B->A run concurrently)",
+      "Writing implementation code in the Live Coding round without writing unit tests or considering concurrency"
+    ],
+    followUpProbes: [
+      "User A in Stockholm transfers 500 SEK to User B at the exact millisecond User B transfers 200 SEK to User A. How do you guarantee your database transaction never deadlocks?",
+      "In our Revolut Live Coding round, if 50 threads simultaneously call `registerBackend()` and `getNextRoundRobin()` on your Load Balancer, where is the race condition and how do you fix it without blocking all readers?"
+    ],
+    levelBarDiff: {
+      L4: "Mid-Level Engineer: Passes the Live TDD Load Balancer / Transfer coding round with clean unit tests and thread-safe primitives.",
+      L5: "Senior Engineer: Designs ACID Double-Entry Ledgers, 30s FX Quote locks, and Saga compensating workflows across SEPA/Swish/NICS rails.",
+      L6: "Principal / Staff Architect: Architects multi-region active-active European & Nordic banking cores, automated reconciliation, and zero-downtime shard migrations."
+    }
   }
 ];
 

@@ -1161,5 +1161,122 @@ export const SYSTEM_DESIGN_PROBLEMS: SystemDesignProblem[] = [
         keywords: ["data contract", "schema registry", "avro", "protobuf", "backward", "data mesh"]
       }
     ]
+  },
+  {
+    id: "revolut_multicurrency_ledger",
+    title: "Design Revolut Multi-Currency FX Exchange & Double-Entry Ledger (Europe / Nordics)",
+    companyTags: ["Revolut (Europe #1 Private Tech)", "Nordics (Sweden / Norway / Finland / Denmark)", "London / Vilnius"],
+    difficulty: "Hard",
+    category: "Distributed Systems",
+    estimatedMinutes: 45,
+    promptSummary:
+      "Architect Revolut's multi-currency digital banking wallet & real-time Foreign Exchange (FX) engine for 50M+ users across Europe & the Nordics: 30-second locked FX quotes (SEK/NOK/EUR/GBP/USD), immutable double-entry PostgreSQL/jOOQ ledger, deadlock-free peer-to-peer transfers, and daily partner-rail reconciliation.",
+    functionalRequirements: [
+      "Real-time FX Quote Lock: Users request a live exchange rate (e.g., 10,000 SEK -> EUR) locked for 30 seconds via a signed quote token.",
+      "Atomic Multi-Currency Conversion & P2P Transfer: Debit sender's SEK sub-account and credit recipient's EUR sub-account with zero floating-point drift (integer minor units) and zero negative balance.",
+      "Append-Only Double-Entry Ledger: Every transfer writes immutable balanced debit/credit journal rows (`SUM(debits) == SUM(credits)`).",
+      "External Clearing & Saga Reconciliation: Route cross-bank settlements across SEPA Instant, Swedish Swish/RIX, Norwegian NICS, and Visa/Mastercard rails with automated reconciliation."
+    ],
+    nonFunctionalRequirements: [
+      "Strict ACID Serializability on balance mutations: Eventual consistency is unacceptable for account balances.",
+      "<120ms P99 latency for internal Revolut-to-Revolut P2P & FX conversions at 25,000 peak TPS.",
+      "Zero Deadlocks under concurrent bidirectional P2P transfers (User A -> User B while User B -> User A).",
+      "99.999% ledger durability on GCP (Cloud SQL / PostgreSQL + Kafka transactional outbox)."
+    ],
+    capacityDefaults: {
+      dau: "50M+ customers across Europe & Nordics (~200M currency sub-accounts)",
+      readQps: "180,000 balance, FX quote & transaction feed reads/sec",
+      writeQps: "25,000 peak atomic P2P transfers & multi-currency FX conversions/sec",
+      storagePerYear: "25B+ immutable Double-Entry Ledger rows/year (10-year EU/UK WORM audit)",
+      bandwidth: "12,000 live FX rate ticks/sec across 1,200 currency pairs"
+    },
+    apiEndpoints: [
+      {
+        method: "POST",
+        path: "/v1/fx/quotes",
+        description: "Locks a guaranteed FX conversion rate (e.g., SEK -> EUR) for 30 seconds in Redis",
+        payload: "Request: { from: 'SEK', to: 'EUR', amountMinor: 1000000 } -> Response: { quoteId: 'qt_991a', targetMinor: 88420, ttlSec: 30 }"
+      },
+      {
+        method: "POST",
+        path: "/v1/transfers/execute",
+        description: "Executes an idempotent, deadlock-free atomic P2P or FX conversion across sub-accounts",
+        payload: "Headers: { 'Idempotency-Key': 'uuid' }, Body: { sourceAccId, destAccId, quoteId: 'qt_991a', amountMinor: 1000000 }"
+      }
+    ],
+    coreEntities: [
+      {
+        table: "wallet_accounts & ledger_entries (PostgreSQL + jOOQ Double-Entry)",
+        dbType: "Relational ACID (Sorted FOR UPDATE)",
+        schema: "account_id, user_id, currency (SEK|NOK|EUR|GBP), balance_minor BIGINT CHECK >= 0, version + immutable DEBIT/CREDIT journal rows",
+        partitionKey: "account_id"
+      },
+      {
+        table: "fx_quote_locks (Redis Cluster Lua)",
+        dbType: "In-Memory Atomic Quote Store (30s TTL)",
+        schema: "quote_id, pair ('SEK_EUR'), rate_scaled_int, max_amount_minor, status ('ACTIVE'|'CONSUMED')",
+        partitionKey: "quote_id"
+      }
+    ],
+    starterNodes: [
+      { id: "rev_client", label: "Revolut iOS / Android", sublabel: "Swift / Kotlin App", category: "client", x: 35, y: 180 },
+      { id: "envoy_gw", label: "Envoy L7 API Gateway", sublabel: "Geo-DNS + Rate Limit", category: "edge", x: 250, y: 180 },
+      { id: "transfer_svc", label: "Transfer & FX Service", sublabel: "Java 21 / SparkJava / jOOQ", category: "compute", x: 480, y: 105 },
+      { id: "ledger_db", label: "Double-Entry Ledger DB", sublabel: "PostgreSQL (ACID)", category: "database", x: 480, y: 265 }
+    ],
+    starterEdges: [
+      { id: "e1", from: "rev_client", to: "envoy_gw", protocol: "TLS 1.3 + JWT" },
+      { id: "e2", from: "envoy_gw", to: "transfer_svc", protocol: "Idempotency-Key" },
+      { id: "e3", from: "transfer_svc", to: "ledger_db", protocol: "jOOQ ACID Tx" }
+    ],
+    referenceNodes: [
+      { id: "rev_client", label: "Revolut Super-App", sublabel: "Nordics & EU (50M+ Users)", category: "client", x: 30, y: 180 },
+      { id: "envoy_gw", label: "Envoy L7 Gateway", sublabel: "Geo-Routing + Token Bucket", category: "edge", x: 230, y: 180 },
+      { id: "fx_quote_redis", label: "FX Quote & Rate Engine", sublabel: "Redis Lua (30s Quote Lock)", category: "cache", x: 455, y: 65 },
+      { id: "transfer_svc", label: "Core Transfer & Ledger Svc", sublabel: "Java 21 + jOOQ (DDD/TDD)", category: "compute", x: 455, y: 180 },
+      { id: "postgres_ledger", label: "PostgreSQL Double-Entry DB", sublabel: "Ordered Lock + Outbox", category: "database", x: 455, y: 295 },
+      { id: "kafka_saga", label: "Kafka Event & Saga Bus", sublabel: "SEPA / Swish / Recon", category: "queue", x: 710, y: 180 }
+    ],
+    referenceEdges: [
+      { id: "re1", from: "rev_client", to: "envoy_gw", protocol: "HTTPS" },
+      { id: "re2", from: "envoy_gw", to: "transfer_svc", protocol: "Idempotency-Key" },
+      { id: "re3", from: "transfer_svc", to: "fx_quote_redis", protocol: "Atomic Consume Quote" },
+      { id: "re4", from: "transfer_svc", to: "postgres_ledger", protocol: "Sorted FOR UPDATE" },
+      { id: "re5", from: "postgres_ledger", to: "kafka_saga", protocol: "Transactional Outbox" }
+    ],
+    requiredArchitectureKeywords: [
+      "double-entry",
+      "idempotency",
+      "integer",
+      "minor",
+      "deadlock",
+      "for update",
+      "saga",
+      "reconciliation",
+      "quote"
+    ],
+    deepDiveQuestions: [
+      {
+        level: "L4",
+        question: "Why does Revolut forbid `UPDATE accounts SET balance = balance - 100` with `DOUBLE`/`FLOAT` columns, and require an append-only Double-Entry Ledger with integer minor units?",
+        idealTradeoff:
+          "IEEE-754 floats introduce binary rounding errors (`0.1 + 0.2 != 0.3`), and in-place overwrites destroy auditability. Every money movement must use 64-bit integer minor units (e.g., öre/cents) and insert two immutable ledger rows (one `DEBIT` on sender, one `CREDIT` on receiver, summing to 0) inside the same ACID transaction as the materialized balance snapshot.",
+        keywords: ["double-entry", "minor", "integer", "float", "immutable", "debit", "credit"]
+      },
+      {
+        level: "L5",
+        question: "User A in Stockholm transfers 500 SEK to User B at the exact millisecond User B transfers 200 SEK to User A. How do you prevent a PostgreSQL deadlock when locking both rows?",
+        idealTradeoff:
+          "Always acquire row locks in a **canonical deterministic order** (e.g., sort `account_id` lexicographically so both transactions lock `min(accA, accB)` first and `max(accA, accB)` second using `SELECT ... FOR UPDATE`), eliminating circular wait conditions.",
+        keywords: ["deadlock", "deterministic", "sort", "order", "for update", "lock"]
+      },
+      {
+        level: "L6",
+        question: "When converting 10,000 SEK to EUR across sharded PostgreSQL databases or external SEPA Instant / Swedish Swish banking rails, why do you avoid 2-Phase Commit (2PC) and how do you handle partial failures?",
+        idealTradeoff:
+          "2PC holds blocking database locks across network boundaries and kills availability if an external bank rail slows down. Instead, use a **Saga Orchestrator** with an internal **Suspense/Escrow Ledger Account**: step 1 atomically moves funds from the user's SEK wallet into Revolut's internal SEK-Suspense account; step 2 credits the EUR wallet (or dispatches to SEPA); if step 2 fails permanently, a compensating transaction credits the user's SEK wallet back from Suspense, verified by nightly reconciliation jobs.",
+        keywords: ["saga", "compensating", "2pc", "suspense", "reconciliation", "outbox"]
+      }
+    ]
   }
 ];

@@ -33,6 +33,23 @@ export interface InterviewerPersonaProfile {
 }
 
 export const INTERVIEWER_PERSONAS: Record<string, InterviewerPersonaProfile> = {
+  revolut_europe: {
+    companyId: "revolut_europe",
+    name: "Lukas Kazlauskas",
+    roleTitle: "Principal Core Ledger & FX Architect",
+    location: "London / Stockholm / Vilnius (Revolut)",
+    accentGradient: "from-sky-500/30 via-indigo-600/20 to-slate-950",
+    suitColor: "#0f172a",
+    shirtColor: "#38bdf8",
+    hairColor: "#27272a",
+    skinTone: "#f1cdb0",
+    glasses: true,
+    beard: false,
+    hairStyle: "short_parted",
+    voiceLangHint: "en-GB",
+    voicePitch: 0.96,
+    voiceRate: 1.05
+  },
   finn_vend_schibsted: {
     companyId: "finn_vend_schibsted",
     name: "Henrik Solberg",
