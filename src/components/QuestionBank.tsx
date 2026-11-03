@@ -115,8 +115,16 @@ export default function QuestionBank({
     defended_tradeoffs: false
   });
 
+  const nordicSet = new Set(["Spotify", "Klarna", "Wolt", "Sana Labs", "Cognite", "Oura"]);
   const companies = [
     "All",
+    "Nordic Hub (All)",
+    "Spotify",
+    "Klarna",
+    "Wolt",
+    "Sana Labs",
+    "Cognite",
+    "Oura",
     "OpenAI",
     "Stripe",
     "Uber",
@@ -131,7 +139,12 @@ export default function QuestionBank({
   const rounds = ["All", "System Design", "Coding", "AI Architecture"];
 
   const filtered = questions.filter((q) => {
-    const matchCompany = selectedCompany === "All" || q.company === selectedCompany;
+    const matchCompany =
+      selectedCompany === "All"
+        ? true
+        : selectedCompany === "Nordic Hub (All)"
+        ? nordicSet.has(q.company)
+        : q.company === selectedCompany;
     const matchRound = selectedRound === "All" || q.roundType === selectedRound;
     return matchCompany && matchRound;
   });

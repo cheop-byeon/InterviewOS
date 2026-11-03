@@ -269,33 +269,30 @@ export function seedDefaultData(db: SqliteDatabaseSync, forceReset = false): voi
     );
   });
 
-  // 5. Seed Job Applications if table is empty
-  const jobCountRow = db.prepare("SELECT COUNT(*) as cnt FROM job_applications").get();
-  if (!jobCountRow || Number(jobCountRow.cnt) === 0) {
-    const jobStmt = db.prepare(`
-      INSERT INTO job_applications (
-        id, company, role, level, compensation, stage, ats_match_score,
-        mock_readiness_score, next_action, updated_at, linked_problem_id, notes, sort_order
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-    INITIAL_JOB_CARDS.forEach((job, idx) => {
-      jobStmt.run(
-        job.id,
-        job.company,
-        job.role,
-        job.level,
-        job.compensation,
-        job.stage,
-        job.atsMatchScore,
-        job.mockReadinessScore,
-        job.nextAction,
-        job.updatedAt,
-        job.linkedProblemId ?? null,
-        job.notes,
-        idx
-      );
-    });
-  }
+  // 5. Seed Job Applications (INSERT OR IGNORE so new default cards are added without overwriting user stage changes)
+  const jobStmt = db.prepare(`
+    INSERT OR IGNORE INTO job_applications (
+      id, company, role, level, compensation, stage, ats_match_score,
+      mock_readiness_score, next_action, updated_at, linked_problem_id, notes, sort_order
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  INITIAL_JOB_CARDS.forEach((job, idx) => {
+    jobStmt.run(
+      job.id,
+      job.company,
+      job.role,
+      job.level,
+      job.compensation,
+      job.stage,
+      job.atsMatchScore,
+      job.mockReadinessScore,
+      job.nextAction,
+      job.updatedAt,
+      job.linkedProblemId ?? null,
+      job.notes,
+      idx
+    );
+  });
 
   // 6. Seed STAR Stories if table is empty
   const storyCountRow = db.prepare("SELECT COUNT(*) as cnt FROM star_stories").get();
@@ -383,6 +380,7 @@ export function seedDefaultData(db: SqliteDatabaseSync, forceReset = false): voi
 
 export function getDatabaseTelemetry(): DatabaseTelemetry {
   const db = getDb();
+  seedDefaultData(db, false);
   let fileSizeBytes = 0;
   try {
     if (fs.existsSync(SQLITE_DB_PATH)) {
@@ -440,6 +438,7 @@ export function getFullWorkspaceFromSqlite(): {
   telemetry: DatabaseTelemetry;
 } {
   const db = getDb();
+  seedDefaultData(db, false);
 
   const userRow = db.prepare("SELECT * FROM users LIMIT 1").get();
   const user: UserProfileRecord = {
@@ -555,6 +554,7 @@ export function getFullWorkspaceFromSqlite(): {
 
 export function syncJobApplicationsInSqlite(jobCards: JobApplicationCard[]): void {
   const db = getDb();
+  seedDefaultData(db, false);
   db.exec("BEGIN TRANSACTION;");
   try {
     db.exec("DELETE FROM job_applications;");
@@ -590,6 +590,7 @@ export function syncJobApplicationsInSqlite(jobCards: JobApplicationCard[]): voi
 
 export function syncStarStoriesInSqlite(stories: StarStory[]): void {
   const db = getDb();
+  seedDefaultData(db, false);
   const nowIso = new Date().toISOString();
   db.exec("BEGIN TRANSACTION;");
   try {
@@ -623,6 +624,7 @@ export function syncStarStoriesInSqlite(stories: StarStory[]): void {
 
 export function syncPracticeSessionsInSqlite(sessions: PracticeSessionRecord[]): void {
   const db = getDb();
+  seedDefaultData(db, false);
   const stmt = db.prepare(`
     INSERT OR REPLACE INTO practice_sessions (
       id, date_label, session_type, title, level, score_pct, verdict, created_at
@@ -645,6 +647,7 @@ export function syncPracticeSessionsInSqlite(sessions: PracticeSessionRecord[]):
 
 export function recordPracticeSessionInSqlite(session: PracticeSessionRecord): void {
   const db = getDb();
+  seedDefaultData(db, false);
   const stmt = db.prepare(`
     INSERT OR REPLACE INTO practice_sessions (
       id, date_label, session_type, title, level, score_pct, verdict, created_at
@@ -666,6 +669,7 @@ export function recordResumeScanInSqlite(
   scan: Omit<ResumeScanRecord, "id" | "createdAt"> & { id?: string; createdAt?: string }
 ): ResumeScanRecord {
   const db = getDb();
+  seedDefaultData(db, false);
   const id = scan.id ?? `scan_${Date.now()}`;
   const createdAt = scan.createdAt ?? new Date().toISOString();
   const stmt = db.prepare(`
@@ -695,6 +699,7 @@ export function recordResumeScanInSqlite(
 
 export function upvoteQuestionInSqlite(questionId: string, delta = 1): number {
   const db = getDb();
+  seedDefaultData(db, false);
   db.prepare("UPDATE question_bank SET upvotes = MAX(0, upvotes + ?) WHERE id = ?").run(
     delta,
     questionId
@@ -705,6 +710,7 @@ export function upvoteQuestionInSqlite(questionId: string, delta = 1): number {
 
 export function createQuestionInSqlite(item: CompanyQuestionItem): CompanyQuestionItem {
   const db = getDb();
+  seedDefaultData(db, false);
   const nowIso = new Date().toISOString();
   const upvotes = item.upvotes ?? 1;
   db.prepare(`
@@ -733,6 +739,7 @@ export function createQuestionInSqlite(item: CompanyQuestionItem): CompanyQuesti
 
 export function updateUserLevelInSqlite(targetLevel: TargetLevel): void {
   const db = getDb();
+  seedDefaultData(db, false);
   db.prepare("UPDATE users SET target_level = ?, updated_at = ? WHERE id = 'default-candidate'").run(
     targetLevel,
     new Date().toISOString()
@@ -741,5 +748,6 @@ export function updateUserLevelInSqlite(targetLevel: TargetLevel): void {
 
 export function resetSqliteDatabase(): void {
   const db = getDb();
+  seedDefaultData(db, false);
   seedDefaultData(db, true);
 }

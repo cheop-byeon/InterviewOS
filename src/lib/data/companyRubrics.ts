@@ -14,7 +14,7 @@ export interface CompanyRubricProfile {
 }
 
 export interface AtsVendorProfile {
-  id: "workday" | "greenhouse" | "lever" | "taleo_icims";
+  id: "workday" | "greenhouse" | "lever" | "taleo_icims" | "teamtailor";
   name: string;
   marketShare: string;
   usedByCompanies: string[];
@@ -176,7 +176,64 @@ export const COMPANY_INSIDER_RUBRICS: CompanyRubricProfile[] = [
     levelBarDiff: {
       L4: "L4 (SWE III): Translates ambiguous prompts into optimal algorithms and handles 1–2 constraint mutations.",
       L5: "L5 (Senior SWE): Anticipates scaling bottlenecks early, proves complexity bounds, and designs fault-tolerant distributed state.",
-      L6: "L6 (Staff SWE):Balances global consistency vs. availability, hardware failure domains, and multi-tenant resource isolation."
+      L6: "L6 (Staff SWE): Balances global consistency vs. availability, hardware failure domains, and multi-tenant resource isolation."
+    }
+  },
+  {
+    id: "spotify_nordic",
+    company: "Spotify (Nordic)",
+    loopStyleName: "Squad Autonomy, Collaborative Architecture & Planet-Scale Audio",
+    badgeColor: "bg-teal-500/20 text-teal-300 border-teal-500/30",
+    corePhilosophy:
+      "Nordic engineering loops (Spotify in Stockholm, Supercell/Oura in Helsinki) reject adversarial 'gotcha' puzzle interviews. They treat the round as a collaborative whiteboard session between two Squad engineers, evaluating pragmatic GCP/Java/Go/Backstage architecture, cross-device state synchronization, and low-ego psychological safety.",
+    interviewerPersonaPrompt:
+      "You are a Staff Backend Engineer in a Spotify Core Playback & Personalization Squad in Stockholm. Collaborate warmly, probe on edge-caching (CDN byte-range), GCP PubSub/Bigtable data pipelines, Backstage microservice ownership, and how the candidate navigates autonomous Squad alignment without top-down hierarchy.",
+    mustHitSignals: [
+      "Collaborative 'Squad peer' communication—inviting trade-off feedback rather than lecturing",
+      "Decoupling hot playback/streaming paths (CDN + Redis) from async royalty & ML personalization streams (Pub/Sub)",
+      "Handling offline/flaky mobile client synchronization with idempotent sequence numbers",
+      "Blameless post-mortem mindset and cross-discipline collaboration (Product, Design, Data Science)"
+    ],
+    autoFailRedFlags: [
+      "Hero/rockstar ego or dismissing interviewer suggestions ('That won't work')",
+      "Over-engineering custom infrastructure when managed GCP (Bigtable/PubSub/Spanner) or standard patterns solve the problem"
+    ],
+    followUpProbes: [
+      "If Discover Weekly's batch recommendation pipeline fails or lags by 6 hours, how does the client home-screen gracefully degrade without blocking playback?",
+      "In a flat Nordic organization without strict top-down mandates, how did you align two autonomous Squads when their API priorities conflicted?"
+    ],
+    levelBarDiff: {
+      L4: "Engineer II: Writes clean, well-tested Java/Python/TS services, collaborates openly, and understands service SLAs.",
+      L5: "Senior Engineer: Owns Squad-level architecture end-to-end, mentors peers, and drives pragmatic reliability improvements.",
+      L6: "Staff Engineer (Tribe/Alliance scope): Shapes technical strategy across multiple Squads via RFCs and Golden Path tooling (Backstage)."
+    }
+  },
+  {
+    id: "klarna_wolt_nordic",
+    company: "Klarna / Wolt (Nordic)",
+    loopStyleName: "Pragmatic FinTech/Logistics, EU GDPR & Real-Time Dispatch",
+    badgeColor: "bg-cyan-500/20 text-cyan-300 border-cyan-500/30",
+    corePhilosophy:
+      "Klarna (Stockholm), Wolt (Helsinki), Vipps (Oslo), and Cognite emphasize clean domain-driven code (Kotlin/TypeScript/Go/Python), event-driven Kafka state machines, strict EU GDPR data privacy ('crypto-shredding' PII), and sub-100ms checkout/courier decisioning.",
+    interviewerPersonaPrompt:
+      "You are a Principal Engineer at Klarna (Stockholm) / Wolt (Helsinki). Probe the candidate on real-time Kafka event streaming, double-entry financial ledger invariants, EU GDPR Right-to-Erasure on immutable logs, and dynamic courier/checkout SLA degradation during Nordic winter peak surges.",
+    mustHitSignals: [
+      "Event-driven architecture with transactional Outbox / Change Data Capture (CDC) to avoid dual-write bugs",
+      "EU GDPR & PSD2 awareness: isolating PII from immutable financial/telemetry event streams (crypto-shredding)",
+      "Pragmatic domain modeling, clean testable code, and explicit circuit-breaker timeouts on third-party APIs"
+    ],
+    autoFailRedFlags: [
+      "Storing unencrypted customer SSN/Personnummer or raw PII directly inside immutable Kafka topics",
+      "Performing synchronous blocking calls to slow external banking APIs without a timeout or fallback"
+    ],
+    followUpProbes: [
+      "Under EU GDPR, a customer in Sweden exercises Right-to-Erasure, but financial regulations require keeping the payment ledger for 7 years. How do you design the schema?",
+      "During a Friday evening snowstorm in Helsinki, courier supply drops 40% while restaurant orders spike 3x. How does your dispatch engine prevent cascading queue backpressure?"
+    ],
+    levelBarDiff: {
+      L4: "Mid-Level: Delivers production-ready Kotlin/TS/Python code with unit tests and clear domain boundaries.",
+      L5: "Senior Engineer: Designs resilient Kafka/PostgreSQL event flows, handles GDPR/idempotency edge cases, and leads incident recovery.",
+      L6: "Staff / Principal: Architects multi-country EU payment/logistics platforms, regulatory compliance by design, and cross-domain SLAs."
     }
   }
 ];
@@ -265,5 +322,26 @@ export const ATS_VENDOR_PROFILES: AtsVendorProfile[] = [
     },
     recruiterTip:
       "Mirror exact phrasing from the Job Description and avoid creative section titles like 'My Journey'—use 'EXPERIENCE', 'EDUCATION', and 'SKILLS'."
+  },
+  {
+    id: "teamtailor",
+    name: "Teamtailor Nordic ATS",
+    marketShare: "#1 in Sweden, Finland, Norway & Denmark (8,000+ Nordic Tech Employers)",
+    usedByCompanies: ["Sana Labs", "Epidemic Sound", "Kry", "Einride", "Polestar", "Oura"],
+    parsingBehavior:
+      "Modern AI-assisted Nordic ATS (headquartered in Stockholm). Parses clean PDF layouts well, auto-tags core stack skills (Kotlin, TypeScript, Go, Python, Kafka, GCP/AWS), and surfaces collaborative ownership, EU/Nordic relocation/work-permit status, and product impact.",
+    weights: {
+      hardSkillWeight: 0.35,
+      architectureWeight: 0.30,
+      impactWeight: 0.25,
+      parsabilityWeight: 0.10
+    },
+    strictChecks: {
+      requireAcronymExpansion: false,
+      penalizeMultiColumn: false,
+      requireStandardDateHeaders: true
+    },
+    recruiterTip:
+      "Nordic hiring managers using Teamtailor value low-ego team impact alongside individual metrics—highlight both quantified system outcomes AND cross-functional Squad/Tribe collaboration."
   }
 ];

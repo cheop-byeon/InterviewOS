@@ -81,6 +81,15 @@ function extractStructuredQuestionFromRawText(rawText: string, sourceHint?: stri
   const lower = rawText.toLowerCase();
 
   const knownCompanies = [
+    "Spotify",
+    "Klarna",
+    "Wolt",
+    "Sana Labs",
+    "Cognite",
+    "Oura",
+    "Vipps",
+    "Tink",
+    "Supercell",
     "OpenAI",
     "Anthropic",
     "Stripe",

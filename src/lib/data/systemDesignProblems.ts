@@ -810,5 +810,239 @@ export const SYSTEM_DESIGN_PROBLEMS: SystemDesignProblem[] = [
         keywords: ["pre-warm", "snapshot", "tmpfs", "nvme", "cold-start"]
       }
     ]
+  },
+  {
+    id: "spotify_connect",
+    title: "Design Spotify Connect & Global Audio Streaming State Sync (Nordic Flagship)",
+    companyTags: ["Spotify", "Epidemic Sound", "Tidal", "Apple"],
+    difficulty: "Hard",
+    category: "Real-Time & Geo",
+    estimatedMinutes: 45,
+    promptSummary:
+      "Design Spotify's global audio streaming delivery and 'Spotify Connect' multi-device state synchronization system supporting 600M+ users, <100ms cross-device playback handoff (Phone -> Laptop -> Smart Speaker), byte-range CDN caching, and offline mode royalty reconciliation.",
+    functionalRequirements: [
+      "Stream low-latency encrypted Ogg Vorbis / AAC audio tracks (160kbps–320kbps) with instant seek via HTTP byte-range requests",
+      "Spotify Connect: Seamlessly transfer active playback position, volume, and shuffle queue across Phone, Desktop, and TV in <100ms",
+      "Offline Mode: Download encrypted tracks locally and reconcile offline play counts for artist royalty payouts upon reconnection",
+      "Emit real-time 'Friend Activity' and track-completion events into Kafka / GCP PubSub for Discover Weekly ML pipelines"
+    ],
+    nonFunctionalRequirements: [
+      "Time-to-First-Audio-Byte < 150ms globally via multi-CDN edge caching (98%+ cache hit ratio for top 10% catalog)",
+      "Conflict-free playback state convergence across connected devices using monotonic sequence numbers / CRDTs",
+      "99.99% availability for audio streaming even if social/recommendation microservices degrade"
+    ],
+    capacityDefaults: {
+      dau: "260M DAU (620M MAU globally)",
+      readQps: "850,000 track chunk & metadata requests/sec",
+      writeQps: "180,000 playback state & royalty telemetry events/sec",
+      storagePerYear: "120M tracks (~4 PB raw master audio across multi-bitrate tiers in GCS)",
+      bandwidth: "45 Tbps global CDN egress peak"
+    },
+    apiEndpoints: [
+      {
+        method: "GET",
+        path: "/api/v1/audio/stream/{trackId}?bitrate=320k",
+        description: "Returns signed CDN byte-range URL + AES-128 decryption key token for client ring-buffer pre-fetching",
+        payload: "Headers: { Range: 'bytes=0-524287' } -> 206 Partial Content"
+      },
+      {
+        method: "WS",
+        path: "wss://connect.spotify.com/v1/dealer",
+        description: "Bidirectional WebSocket ('Dealer' / Mercury protocol) syncing active device lease, timestamp offset, and queue mutations",
+        payload: "{ cmd: 'TRANSFER_PLAYBACK', activeDeviceId: 'living_room_speaker', positionMs: 84320, seqNum: 412 }"
+      }
+    ],
+    coreEntities: [
+      {
+        table: "user_connect_cluster (Redis Cluster + Bigtable)",
+        dbType: "Redis Cluster (Hot State)",
+        schema: "user_id, active_device_id, track_uri, playback_pos_ms, started_at_epoch_ms, queue_hash, seq_num",
+        partitionKey: "user_id"
+      },
+      {
+        table: "royalty_play_ledger (GCP Pub/Sub -> Scio / BigQuery)",
+        dbType: "Append-Only Event Stream",
+        schema: "event_uuid (idempotency), user_id, track_id,artist_id, listened_ms (must be >=30000ms), offline_batch_flag",
+        partitionKey: "track_id"
+      }
+    ],
+    starterNodes: [
+      { id: "mobile_app", label: "iOS / Android Client", sublabel: "Controller + Local Cache", category: "client", x: 35, y: 120 },
+      { id: "smart_speaker", label: "Smart Speaker / Desktop", sublabel: "Active Audio Output", category: "client", x: 35, y: 260 },
+      { id: "edge_cdn", label: "Multi-CDN Edge", sublabel: "Byte-Range Audio Chunks", category: "edge", x: 280, y: 110 },
+      { id: "connect_svc", label: "Spotify Connect Dealer", sublabel: "WebSocket State Sync", category: "compute", x: 280, y: 260 },
+      { id: "redis_state", label: "Redis Session State", sublabel: "Active Device Lease", category: "cache", x: 540, y: 260 }
+    ],
+    starterEdges: [
+      { id: "e1", from: "smart_speaker", to: "edge_cdn", protocol: "HTTP 206 Byte-Range" },
+      { id: "e2", from: "mobile_app", to: "connect_svc", protocol: "WSS Mercury" },
+      { id: "e3", from: "smart_speaker", to: "connect_svc", protocol: "WSS Mercury" },
+      { id: "e4", from: "connect_svc", to: "redis_state", protocol: "State Lease" }
+    ],
+    referenceNodes: [
+      { id: "mobile_app", label: "Mobile Controller", sublabel: "WSS + Offline SQLite", category: "client", x: 30, y: 100 },
+      { id: "smart_speaker", label: "Smart Speaker Player", sublabel: "Ring-Buffer Pre-Fetch", category: "client", x: 30, y: 260 },
+      { id: "edge_cdn", label: "Fastly / Cloud CDN", sublabel: "AES-128 Byte-Range", category: "edge", x: 250, y: 80 },
+      { id: "connect_dealer", label: "Connect Dealer Gateway", sublabel: "Stateful WSS Router", category: "compute", x: 250, y: 250 },
+      { id: "redis_cluster", label: "Redis Connect Cluster", sublabel: "Single-Active-Device Lock", category: "cache", x: 495, y: 170 },
+      { id: "pubsub_kafka", label: "GCP Pub/Sub Stream", sublabel: ">=30s Royalty Telemetry", category: "queue", x: 495, y: 310 },
+      { id: "gcs_bigtable", label: "GCS Master + Bigtable", sublabel: "Audio Blobs & User Graph", category: "database", x: 725, y: 170 }
+    ],
+    referenceEdges: [
+      { id: "re1", from: "smart_speaker", to: "edge_cdn", protocol: "HTTP 206 Chunks" },
+      { id: "re2", from: "edge_cdn", to: "gcs_bigtable", protocol: "Origin Miss (<2%)" },
+      { id: "re3", from: "mobile_app", to: "connect_dealer", protocol: "WSS Command" },
+      { id: "re4", from: "smart_speaker", to: "connect_dealer", protocol: "WSS State Ack" },
+      { id: "re5", from: "connect_dealer", to: "redis_cluster", protocol: "CAS seq_num" },
+      { id: "re6", from: "connect_dealer", to: "pubsub_kafka", protocol: "Stream >=30s Event" }
+    ],
+    requiredArchitectureKeywords: [
+      "cdn",
+      "byte-range",
+      "websocket",
+      "redis",
+      "lease",
+      "offline",
+      "idempotency",
+      "royalty"
+    ],
+    deepDiveQuestions: [
+      {
+        level: "L4",
+        question: "Why should clients fetch audio in 512KB HTTP 206 byte-range chunks rather than downloading the entire 10MB file upfront?",
+        idealTradeoff:
+          "Byte-range requests enable <150ms instant playback start, instant scrubbing/seeking to any timestamp offset without downloading skipped bytes, and save 60%+ CDN bandwidth when users skip tracks in the first 10 seconds.",
+        keywords: ["byte-range", "206", "seek", "bandwidth", "cdn"]
+      },
+      {
+        level: "L5",
+        question: "In Spotify Connect, if a user taps 'Play on Laptop' while their Phone is still playing on cellular, how do you prevent both devices from playing simultaneously?",
+        idealTradeoff:
+          "Enforce a single-active-device lease in Redis Cluster using Compare-And-Swap (`seq_num` + `active_device_id`). When the Laptop claims the lease, the Connect Dealer pushes a `PAUSE_LEASE_REVOKED` frame to the Phone WebSocket and calculates `current_pos = started_at_offset + (now - started_at_epoch)` so the Laptop resumes at the exact millisecond.",
+        keywords: ["lease", "compare-and-swap", "seq_num", "redis", "websocket"]
+      },
+      {
+        level: "L6",
+        question: "A user listens to 400 downloaded songs offline on a flight. How do you ensure accurate artist royalty payouts (>30s rule) without allowing malicious clients to spoof 1M fake plays?",
+        idealTradeoff:
+          "Client logs signed, monotonic play-session receipts (`client_event_uuid`, device hardware attestation token, track duration bounds). Upon reconnect, the ingestion pipeline deduplicates by `client_event_uuid` and runs anomaly/velocity heuristics (e.g., total listened duration cannot exceed elapsed wall-clock offline time).",
+        keywords: ["offline", "idempotency", "uuid", "attestation", "wall-clock", "royalty"]
+      }
+    ]
+  },
+  {
+    id: "klarna_vipps_payments",
+    title: "Design Klarna / Vipps Real-Time BNPL Risk Engine & GDPR Ledger (Nordic FinTech)",
+    companyTags: ["Klarna", "Vipps MobilePay", "Tink", "Stripe", "Wise"],
+    difficulty: "Staff+",
+    category: "Distributed Systems",
+    estimatedMinutes: 45,
+    promptSummary:
+      "Design a pan-Nordic & European Instant Payment and Buy-Now-Pay-Later (BNPL) decisioning platform that scores credit/fraud risk in <80ms at checkout, integrates PSD2 Open Banking (Tink/BankID), and enforces EU GDPR Right-to-Erasure ('crypto-shredding') on immutable financial event streams.",
+    functionalRequirements: [
+      "Synchronous Checkout Decisioning: Approve or decline a 4-installment BNPL purchase or instant P2P transfer in <80ms P99",
+      "Verify identity via Nordic BankID / MitID and pull real-time PSD2 account signals via Tink Open Banking",
+      "Maintain an immutable double-entry multi-currency ledger (SEK, NOK, DKK, EUR) with strict idempotency",
+      "EU GDPR Compliance: Support Right-to-Erasure (RTBF) for customer PII without corrupting immutable audit & tax ledgers"
+    ],
+    nonFunctionalRequirements: [
+      "Zero double-debits or orphaned installment schedules under retry storms (Strict Serializability on ledger entries)",
+      "P99 Checkout Risk Evaluation < 80ms even when external credit bureaus or PSD2 bank APIs experience 2-second tail latency",
+      "Strict EU regional data residency + cryptographic PII erasure ('crypto-shredding')"
+    ],
+    capacityDefaults: {
+      dau: "45M active Nordic & EU shoppers (2.5M merchants)",
+      readQps: "75,000 risk feature & limit lookups/sec",
+      writeQps: "18,000 checkout transactions & installment ledger writes/sec",
+      storagePerYear: "90 TB immutable double-entry ledger + 400 TB Kafka audit log",
+      bandwidth: "3.2 GB/s internal gRPC feature & ledger stream"
+    },
+    apiEndpoints: [
+      {
+        method: "POST",
+        path: "/api/v1/checkout/authorize",
+        description: "Evaluates real-time BNPL credit/fraud risk and places an idempotent hold on customer credit line",
+        payload: "Headers: { 'Idempotency-Key': 'uuid' }, Body: { shopperId, merchantId, amountMinor: 149900, currency: 'SEK' }"
+      },
+      {
+        method: "DELETE",
+        path: "/api/v1/privacy/gdpr-shred/{shopperId}",
+        description: "Executes GDPR Right-to-Erasure by destroying the shopper's per-subject KMS encryption key while preserving anonymized tax ledger rows",
+        payload: "{ shopperId, legalRetentionCheck: 'PASSED' } -> { shreddedKeyId, status: 'PII_CRYPTO_SHREDDED' }"
+      }
+    ],
+    coreEntities: [
+      {
+        table: "double_entry_ledger (PostgreSQL / Aurora Partitioned)",
+        dbType: "Relational ACID (Partitioned)",
+        schema: "entry_id, tx_id, account_id, direction (DEBIT|CREDIT), amount_minor, currency, idempotency_key",
+        partitionKey: "account_id"
+      },
+      {
+        table: "pii_kms_keyring (Vault / AWS KMS)",
+        dbType: "Key Management Store",
+        schema: "shopper_id, data_encryption_key_cipher, created_at, shredded_at",
+        partitionKey: "shopper_id"
+      }
+    ],
+    starterNodes: [
+      { id: "checkout_ui", label: "Merchant Checkout SDK", sublabel: "BankID + Idempotency", category: "client", x: 35, y: 180 },
+      { id: "checkout_gw", label: "Checkout Orchestrator", sublabel: "<80ms SLA Budget", category: "compute", x: 260, y: 180 },
+      { id: "risk_engine", label: "Real-Time Risk Scorer", sublabel: "Flink + Redis Feature Store", category: "search_ai", x: 500, y: 100 },
+      { id: "ledger_db", label: "Double-Entry Ledger", sublabel: "PostgreSQL ACID", category: "database", x: 500, y: 265 }
+    ],
+    starterEdges: [
+      { id: "e1", from: "checkout_ui", to: "checkout_gw", protocol: "HTTPS" },
+      { id: "e2", from: "checkout_gw", to: "risk_engine", protocol: "gRPC (<25ms)" },
+      { id: "e3", from: "checkout_gw", to: "ledger_db", protocol: "ACID Commit" }
+    ],
+    referenceNodes: [
+      { id: "checkout_ui", label: "Checkout Widget", sublabel: "BankID / MitID Token", category: "client", x: 30, y: 180 },
+      { id: "api_gw", label: "EU-North API Gateway", sublabel: "Idempotency & mTLS", category: "edge", x: 225, y: 180 },
+      { id: "checkout_svc", label: "Checkout Saga Svc", sublabel: "Circuit Breaker + Timeout", category: "compute", x: 430, y: 180 },
+      { id: "redis_features", label: "Redis Feature Store", sublabel: "Pre-Computed Velocity (<5ms)", category: "cache", x: 675, y: 65 },
+      { id: "ledger_pg", label: "Partitioned Ledger DB", sublabel: "Double-Entry SEK/EUR/NOK", category: "database", x: 675, y: 180 },
+      { id: "kafka_kms", label: "Kafka + Per-User KMS", sublabel: "GDPR Crypto-Shredding", category: "queue", x: 675, y: 305 }
+    ],
+    referenceEdges: [
+      { id: "re1", from: "checkout_ui", to: "api_gw", protocol: "HTTPS" },
+      { id: "re2", from: "api_gw", to: "checkout_svc", protocol: "gRPC" },
+      { id: "re3", from: "checkout_svc", to: "redis_features", protocol: "Fetch Risk Features" },
+      { id: "re4", from: "checkout_svc", to: "ledger_pg", protocol: "Serial Ledger Tx" },
+      { id: "re5", from: "checkout_svc", to: "kafka_kms", protocol: "Encrypted Audit Event" }
+    ],
+    requiredArchitectureKeywords: [
+      "idempotency",
+      "ledger",
+      "double-entry",
+      "gdpr",
+      "crypto-shredding",
+      "circuit breaker",
+      "redis",
+      "flink"
+    ],
+    deepDiveQuestions: [
+      {
+        level: "L4",
+        question: "Why must financial ledgers store amounts as integer minor units (e.g., `14990` öre/cents) with an explicit `DEBIT`/`CREDIT` pair instead of updating a single `balance` float column?",
+        idealTradeoff:
+          "IEEE 754 floats introduce rounding errors (`0.1 + 0.2 != 0.3`), and in-place `UPDATE balance` destroys auditability. Double-entry integer rows ensure `SUM(credits) - SUM(debits) == 0` across the entire system.",
+        keywords: ["integer", "double-entry", "audit", "float", "minor"]
+      },
+      {
+        level: "L5",
+        question: "External credit bureau and PSD2 Open Banking APIs often take 800ms–2000ms. How do you hit a strict <80ms checkout decision SLA?",
+        idealTradeoff:
+          "Decouple slow external fetches from the hot checkout path! Pre-compute rolling user repayment velocity and cached BankID/Tink credit tiers in Redis (<5ms read). Use a strict 45ms circuit-breaker timeout on live bureau calls with fallback to cached risk limits for returning users.",
+        keywords: ["circuit breaker", "redis", "pre-compute", "timeout", "fallback"]
+      },
+      {
+        level: "L6",
+        question: "Under EU GDPR Article 17 (Right to Erasure), a user demands deletion of their personal data, but Swedish/EU financial law requires retaining immutable tax ledgers for 7 years. How do you reconcile immutable Kafka/ledger logs with GDPR erasure?",
+        idealTradeoff:
+          "Implement Crypto-Shredding + PII Tokenization: never write raw name/SSN/email into Kafka or the financial ledger—store only an opaque `shopper_uuid` and encrypt any PII payload with a per-user Data Encryption Key (DEK) stored in KMS/Vault. When a GDPR erasure request arrives after legal hold, delete the user's DEK in O(1), rendering historical Kafka PII permanently undecryptable without mutating the log.",
+        keywords: ["crypto-shredding", "kms", "dek", "gdpr", "immutable", "tokenization"]
+      }
+    ]
   }
 ];

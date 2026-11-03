@@ -78,6 +78,44 @@ Requirements:
 - Deep experience with Retrieval-Augmented Generation (RAG), Vector Databases (HNSW, Qdrant/Milvus), Hybrid Search (BM25 + Dense Embeddings), and Cross-Encoder Reranking.
 - Expertise in LLM Inference Optimization (vLLM, KV Cache, Streaming SSE, Token Rate Limiting) and Guardrails / Evals.
 - Proven Staff-level Technical Leadership: authoring multi-quarter technical strategy, mentoring engineers, and aligning Product & Security stakeholders.`
+  },
+  {
+    id: "nordic_spotify_klarna",
+    title: "Senior Backend & Distributed Systems Engineer (Nordics)",
+    company: "Spotify / Klarna (Stockholm / Helsinki)",
+    level: "L5",
+    resumeText: `ERIK LINDQVIST
+erik.lindqvist@nordicmail.se | Stockholm, Sweden (EU Citizen) | github.com/elindqvist | linkedin.com/in/eriklindqvist
+
+EXPERIENCE
+Senior Backend Engineer — NordicPay & Commerce AB, Stockholm (2022 – Present)
+- Engineered event-driven payment and settlement microservices in Kotlin, TypeScript, and Go processing 14,000 peak TPS across SEK, NOK, and EUR rails.
+- Responsible for maintaining Kafka consumers and PostgreSQL ledgers for instant checkout flows.
+- Implemented EU GDPR crypto-shredding and PII tokenization with AWS KMS, passing external Finansinspektionen and SOC2 audits with zero findings.
+- Collaborated across 4 autonomous Squads to standardize OpenTelemetry observability and Backstage service templates.
+
+Backend Software Engineer — StreamWave Media, Helsinki (2019 – 2022)
+- Built low-latency gRPC and WebSocket state synchronization services on GCP (GKE, Bigtable, Pub/Sub, Redis) serving 18M monthly active listeners.
+- Cut P99 cross-device playback handoff latency from 310ms to 78ms using Redis Cluster lease locking.
+
+SKILLS
+Languages: Kotlin, Java, TypeScript, Go, Python, SQL
+Cloud & Data: GCP (Bigtable, Pub/Sub, Dataflow), AWS, PostgreSQL, Redis, Apache Kafka, Kubernetes, Docker, Terraform, Backstage, gRPC, GDPR / PSD2 Architecture
+
+EDUCATION
+M.Sc. in Computer Science, KTH Royal Institute of Technology, Stockholm`,
+    jdText: `Role: Senior Backend Engineer — Core Playback & Real-Time Decisioning (L5)
+Location: Stockholm, Sweden / Helsinki, Finland (Hybrid • Teamtailor ATS)
+
+About the Squad:
+We are looking for a Senior Backend Engineer to join our autonomous Squad in Stockholm/Helsinki building planet-scale real-time state synchronization and low-latency payment/streaming infrastructure.
+
+Requirements & What We Look For:
+- 5+ years of production experience building high-concurrency Distributed Systems and Microservices in Java, Kotlin, Go, or TypeScript.
+- Strong expertise in Event-Driven Architecture (Apache Kafka / GCP Pub/Sub), Redis caching, and relational/NoSQL storage (PostgreSQL, Bigtable, Cassandra).
+- Experience designing low-latency APIs (gRPC, WebSockets, REST) with strict Idempotency, Rate Limiting, and Circuit Breakers on Kubernetes (GCP / AWS).
+- Deep awareness of European/Nordic engineering standards, including EU GDPR privacy-by-design, Infrastructure as Code (Terraform), and CI/CD automation.
+- Collaborative, low-ego Technical Leadership: thriving in autonomous Squads, authoring RFCs, mentoring peers, and participating in blameless post-mortems.`
   }
 ];
 
@@ -639,6 +677,102 @@ export const COMPANY_QUESTION_BANK: CompanyQuestionItem[] = [
     keyRubricSignal: "O(V + E) topological sort with indegree queue + parallel wave grouping.",
     linkedModule: "mock_interview",
     linkedTopicId: "task_scheduler_topo"
+  },
+  {
+    id: "q_spotify_1",
+    company: "Spotify",
+    role: "Backend / Distributed Systems",
+    level: "L5",
+    roundType: "System Design",
+    questionTitle: "Design Spotify Connect Multi-Device Playback Sync & Offline Royalty Ledger (Stockholm)",
+    details:
+      "Stockholm Onsite Loop: Transfer active playback position and shuffle queue between iOS, Desktop, and Smart Speakers in <100ms while reconciling offline play counts (>=30s rule) for artist payouts.",
+    askedAgo: "Asked 2 days ago • Stockholm",
+    frequency: "High Frequency",
+    keyRubricSignal:
+      "Single-active-device lease in Redis Cluster using Compare-And-Swap sequence numbers + HTTP 206 byte-range CDN caching.",
+    linkedModule: "system_design",
+    linkedTopicId: "spotify_connect"
+  },
+  {
+    id: "q_klarna_1",
+    company: "Klarna",
+    role: "Backend / Distributed Systems",
+    level: "L6",
+    roundType: "System Design",
+    questionTitle: "Design Sub-80ms BNPL Checkout Risk Engine & EU GDPR Crypto-Shredding Ledger (Stockholm)",
+    details:
+      "Stockholm Principal/Staff Loop: Approve 4-installment purchases in <80ms using BankID/PSD2 signals while satisfying EU GDPR Right-to-Erasure on immutable Kafka audit logs.",
+    askedAgo: "Asked 3 days ago • Stockholm",
+    frequency: "Verified Onsite",
+    keyRubricSignal:
+      "Pre-computed velocity features in Redis + per-shopper KMS Data Encryption Keys (crypto-shredding PII without mutating tax ledgers).",
+    linkedModule: "system_design",
+    linkedTopicId: "klarna_vipps_payments"
+  },
+  {
+    id: "q_wolt_1",
+    company: "Wolt",
+    role: "Backend / Distributed Systems",
+    level: "L5",
+    roundType: "System Design",
+    questionTitle: "Design Real-Time 3-Sided Courier Batch Dispatch & Winter Weather ETA Engine (Helsinki)",
+    details:
+      "Helsinki Onsite Loop: Match courier partners, restaurants, and hungry customers across Nordic cities where snowstorms dynamically shift travel times and food prep queues.",
+    askedAgo: "Asked 4 days ago • Helsinki",
+    frequency: "High Frequency",
+    keyRubricSignal:
+      "H3 hexagonal spatial indexing + rolling 15-second bipartite batch matching window optimizing food wait time vs. courier detour.",
+    linkedModule: "system_design",
+    linkedTopicId: "uber"
+  },
+  {
+    id: "q_sana_1",
+    company: "Sana Labs",
+    role: "AI / ML Infrastructure",
+    level: "L5",
+    roundType: "AI Architecture",
+    questionTitle: "Design Multi-Tenant Enterprise AI Agent Workspace with Strict EU GDPR Data Residency (Stockholm)",
+    details:
+      "Stockholm AI Loop: Index 50M enterprise Slack/Drive/Notion docs with live ACL permission enforcement, hybrid BM25 + HNSW search, and zero cross-tenant prompt leakage.",
+    askedAgo: "Asked 3 days ago • Stockholm",
+    frequency: "Trending",
+    keyRubricSignal:
+      "Tenant-partitioned Qdrant/Turbopuffer namespaces + Zanzibar/Redis group ACL pre-filtering before Cross-Encoder reranking.",
+    linkedModule: "system_design",
+    linkedTopicId: "rag_enterprise"
+  },
+  {
+    id: "q_cognite_1",
+    company: "Cognite",
+    role: "Backend / Distributed Systems",
+    level: "L5",
+    roundType: "System Design",
+    questionTitle: "Design High-Throughput Industrial IoT Time-Series Ingestion & Asset Knowledge Graph (Oslo)",
+    details:
+      "Oslo Onsite Loop: Ingest 2M sensor readings/sec from North Sea offshore energy platforms with intermittent satellite connectivity and sub-second anomaly alerting.",
+    askedAgo: "Asked 5 days ago • Oslo",
+    frequency: "Verified Onsite",
+    keyRubricSignal:
+      "Edge ring-buffer batching during satellite blackouts + Kafka partition by asset_id + Timescale/ClickHouse columnar downsampling.",
+    linkedModule: "system_design",
+    linkedTopicId: "spotify_connect"
+  },
+  {
+    id: "q_oura_1",
+    company: "Oura",
+    role: "Backend / Distributed Systems",
+    level: "L5",
+    roundType: "Coding",
+    questionTitle: "Merge Continuous Biometric Ring Sleep-Stage & HRV Time-Series Windows (Helsinki / Oulu)",
+    details:
+      "Helsinki Coding Round: Given fragmented BLE ring sync intervals of heart-rate variability (HRV) and temperature data with clock drift, merge overlapping windows in O(N log N).",
+    askedAgo: "Asked 6 days ago • Helsinki",
+    frequency: "Verified Onsite",
+    keyRubricSignal:
+      "O(N log N) interval sorting by start epoch + monotonic merge with gap tolerance threshold.",
+    linkedModule: "mock_interview",
+    linkedTopicId: "merge_intervals_calendar"
   }
 ];
 
@@ -728,6 +862,34 @@ export const INITIAL_JOB_CARDS: JobApplicationCard[] = [
     updatedAt: "3 days ago",
     linkedProblemId: "whatsapp",
     notes: "Target role for Q4 loop. Need to emphasize Cassandra / high-fanout messaging experience."
+  },
+  {
+    id: "job_5_spotify",
+    company: "Spotify (Stockholm)",
+    role: "Senior Backend Engineer — Core Playback & Connect Squad",
+    level: "L5",
+    compensation: "920k – 1.15M SEK + RSU (€95k–€115k)",
+    stage: "onsite",
+    atsMatchScore: 88,
+    mockReadinessScore: 86,
+    nextAction: "Practice Spotify Connect State Sync & Squad Collaboration Loop",
+    updatedAt: "Today • Stockholm",
+    linkedProblemId: "spotify_connect",
+    notes: "Nordic loop via Teamtailor: 1 Collaborative System Design (Connect Dealer / GCP), 1 Pragmatic Coding, 1 Squad Values & Architecture Deep Dive."
+  },
+  {
+    id: "job_6_klarna_wolt",
+    company: "Klarna / Wolt (Nordics)",
+    role: "Staff Distributed Systems Engineer — Real-Time Decisioning",
+    level: "L6",
+    compensation: "€125k – €155k + Equity (Stockholm / Helsinki)",
+    stage: "applied",
+    atsMatchScore: 83,
+    mockReadinessScore: 84,
+    nextAction: "Practice Sub-80ms BNPL Risk Engine & GDPR Crypto-Shredding",
+    updatedAt: "Yesterday • Nordic Hub",
+    linkedProblemId: "klarna_vipps_payments",
+    notes: "Emphasize Kafka transactional outbox, EU GDPR crypto-shredding with KMS, and sub-80ms checkout SLAs."
   }
 ];
 
