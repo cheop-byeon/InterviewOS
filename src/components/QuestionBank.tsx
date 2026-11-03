@@ -22,33 +22,159 @@ interface QuestionBankProps {
   onDatabaseMutated?: () => void;
 }
 
-const ANNOTATED_WALKTHROUGH = [
+const WALKTHROUGH_DECKS: Record<
+  "spotify" | "wolt" | "stripe",
   {
-    timestamp: "00:45",
-    speaker: "Candidate (L6 Staff Loop — Stripe)",
-    transcript:
-      "Before choosing a database for the payment ledger, let's lock down our invariants: we need strict serializability on balance debits, zero double-charges under client network retries, and 15,000 peak write QPS.",
-    committeeAnnotation:
-      "Strong L6 Signal (+1.0): Candidate immediately defines correctness invariants (idempotency + serializability) before naming technologies.",
-    badge: "Exceeds Bar"
+    title: string;
+    subtitle: string;
+    steps: {
+      timestamp: string;
+      speaker: string;
+      transcript: string;
+      committeeAnnotation: string;
+      badge: string;
+    }[];
+  }
+> = {
+  spotify: {
+    title: "Spotify (Stockholm L5 Loop) — Production Case Study & Band Manifesto",
+    subtitle:
+      "Spotify includes a unique 'Production Incident Case Study' round alongside System Design and the 'Band Manifesto' cultural alignment round:",
+    steps: [
+      {
+        timestamp: "02:10",
+        speaker: "Spotify Interviewer (Core Playback Squad — Stockholm)",
+        transcript:
+          "A top global artist just dropped a surprise album at midnight CET. Playlist service P99 latency spiked from 40ms to 2.4s, and Discover Weekly recommendations are timing out. How do you triage this live?",
+        committeeAnnotation:
+          "Spotify Case Study Probe: Tests real-world operational instincts, observability (Grafana/OpenTelemetry), and graceful degradation rather than textbook theory.",
+        badge: "Incident Scenario"
+      },
+      {
+        timestamp: "03:05",
+        speaker: "Candidate (L5 Senior Backend — Offer Accepted)",
+        transcript:
+          "First, I'd protect the core audio streaming path by shedding load on non-critical personalization: trip the circuit breaker on dynamic ML recommendations and serve a static cached fallback from CDN/Redis so playback never fails. Second, I'd inspect Bigtable/Redis hot-key telemetry for the new album URI—millions of concurrent fetches on a single partition key require local in-memory edge caching (5s TTL) on the API pods.",
+        committeeAnnotation:
+          "Strong Hire Signal: Candidate prioritizes user playback continuity (graceful degradation) and immediately diagnoses the hot-partition thundering herd.",
+        badge: "Exceeds Bar"
+      },
+      {
+        timestamp: "28:40",
+        speaker: "Candidate (Band Manifesto / Squad Autonomy Round)",
+        transcript:
+          "When our Squad's schema migration broke a downstream data pipeline, I led a blameless post-mortem with the Data Chapter, added contract tests in our Backstage CI template, and shared the learnings across the Tribe.",
+        committeeAnnotation:
+          "Nordic Culture Fit (+1.0): Demonstrates low-ego accountability, psychological safety, and autonomous Squad collaboration without blaming others.",
+        badge: "Band Manifesto Fit"
+      }
+    ]
+  },
+  wolt: {
+    title: "Wolt (Helsinki L5 Loop) — Take-Home Assignment Live Refactoring Defense",
+    subtitle:
+      "Wolt is famous in the Nordics for its production-grade Take-Home API assignment followed by a live 60-minute technical defense & requirement mutation:",
+    steps: [
+      {
+        timestamp: "04:15",
+        speaker: "Wolt Interviewer (Courier Logistics — Helsinki)",
+        transcript:
+          "Your take-home delivery fee service is super clean and Dockerized. Now suppose during a Helsinki Friday snowstorm we need to add a dynamic 'winter surge tier' based on real-time courier supply in that H3 hexagon. How would you refactor your pricing engine right now without breaking existing unit tests?",
+        committeeAnnotation:
+          "Wolt Take-Home Defense Probe: Verifies that you actually wrote your take-home code yourself and designed extensible, decoupled domain logic.",
+        badge: "Live Refactoring"
+      },
+      {
+        timestamp: "05:00",
+        speaker: "Candidate (L5 Backend — Offer Accepted)",
+        transcript:
+          "Because I structured the fee rules using the Strategy/Chain-of-Responsibility pattern (`FeeRule` interface), we don't need to touch the existing distance or small-order surcharge classes. I'll inject a `WeatherSurgeRule` that reads the cached H3 supply ratio from Redis with a 50ms fallback default if Redis is unreachable, and add a parameterized unit test for the surge boundaries.",
+        committeeAnnotation:
+          "Strong Hire Verdict: Pragmatic, clean domain boundaries (not over-engineered, easy to extend live) + defensive fallback for external state.",
+        badge: "Strong Hire Signal"
+      }
+    ]
+  },
+  stripe: {
+    title: "Stripe (L6 Staff Loop) — Distributed Payment Ledger Idempotency",
+    subtitle:
+      "See exact Hiring Committee annotations at each timestamp of a Staff Backend architecture round:",
+    steps: [
+      {
+        timestamp: "00:45",
+        speaker: "Candidate (L6 Staff Loop — Stripe)",
+        transcript:
+          "Before choosing a database for the payment ledger, let's lock down our invariants: we need strict serializability on balance debits, zero double-charges under client network retries, and 15,000 peak write QPS.",
+        committeeAnnotation:
+          "Strong L6 Signal (+1.0): Candidate immediately defines correctness invariants (idempotency + serializability) before naming technologies.",
+        badge: "Exceeds Bar"
+      },
+      {
+        timestamp: "06:20",
+        speaker: "Interviewer Pushback",
+        transcript:
+          "If the client retries a POST /charge request after a TCP timeout, how do you guarantee the downstream payment gateway isn't billed twice if your first worker crashed mid-flight?",
+        committeeAnnotation:
+          "Crucial Distributed Systems Probe: Tests whether the candidate understands atomic state transitions vs. naive cache checks.",
+        badge: "Probe"
+      },
+      {
+        timestamp: "07:05",
+        speaker: "Candidate (L6 Staff Loop — Stripe)",
+        transcript:
+          "We require a client-generated UUID `Idempotency-Key` header. We insert that key into PostgreSQL with state `STARTED` and a 60s lease lock inside the same ACID transaction as the ledger intent row. If a worker crashes before committing `COMPLETED`, the recovery worker queries the payment gateway using the deterministic idempotency token before re-executing.",
+        committeeAnnotation:
+          "Strong Hire Verdict: Explains the exact two-phase recovery state machine (`STARTED` -> `COMPLETED` with lease expiration) used in Stripe's real production architecture.",
+        badge: "Strong Hire Signal"
+      }
+    ]
+  }
+};
+
+const APPLICANT_FEEDBACK_REPORTS = [
+  {
+    company: "Spotify (Stockholm HQ)",
+    role: "Senior Backend Engineer (L5)",
+    outcome: "Offer Accepted (1.08M SEK + RSU + Relocation)",
+    loopSummary:
+      "4 Rounds: 1) CoderPad Practical API/DSA (60m), 2) Distributed System Design (CDN + Pub/Sub), 3) Production Incident Case Study, 4) Band Manifesto Culture Round.",
+    whatWorked:
+      "Treating the interviewers like fellow Squad peers rather than an exam panel. Knowing how Spotify uses GCP (Bigtable, Pub/Sub) and Backstage, and emphasizing autonomous collaboration.",
+    watchOutFor:
+      "Don't expect LeetCode Hard DP puzzles—they care much more about readable Java/Kotlin/Python code, testability, and how you debug production bottlenecks."
   },
   {
-    timestamp: "06:20",
-    speaker: "Interviewer Pushback",
-    transcript:
-      "If the client retries a POST /charge request after a TCP timeout, how do you guarantee the downstream payment gateway isn't billed twice if your first worker crashed mid-flight?",
-    committeeAnnotation:
-      "Crucial Distributed Systems Probe: Tests whether the candidate understands atomic state transitions vs. naive cache checks.",
-    badge: "Probe"
+    company: "Wolt (Helsinki HQ / Stockholm)",
+    role: "Senior Backend Engineer (Kotlin / Python)",
+    outcome: "Offer Accepted (€108k + DoorDash RSU)",
+    loopSummary:
+      "Recruiter Screen -> Production Take-Home Assignment -> 60m Take-Home Code Defense & Live Refactoring -> System Design (Real-time Courier Geo Dispatch) -> Values Round.",
+    whatWorked:
+      "Treating the Take-Home assignment like a real production PR: integer minor units for currency, 95% unit/edge-case test coverage, clean `docker compose up`, and a concise trade-offs section in the README.",
+    watchOutFor:
+      "In the Take-Home review, they WILL ask you to add a new feature live. Keep your classes decoupled so you can add a new rule in 10 minutes."
   },
   {
-    timestamp: "07:05",
-    speaker: "Candidate (L6 Staff Loop — Stripe)",
-    transcript:
-      "We require a client-generated UUID `Idempotency-Key` header. We insert that key into PostgreSQL with state `STARTED` and a 60s lease lock inside the same ACID transaction as the ledger intent row. If a worker crashes before committing `COMPLETED`, the recovery worker queries the payment gateway using the deterministic idempotency token before re-executing.",
-    committeeAnnotation:
-      "Strong Hire Verdict: Explains the exact two-phase recovery state machine (`STARTED` -> `COMPLETED` with lease expiration) used in Stripe's real production architecture.",
-    badge: "Strong Hire Signal"
+    company: "Klarna (Stockholm HQ)",
+    role: "Senior Software Engineer — Core FinTech",
+    outcome: "Offer Extended",
+    loopSummary:
+      "Recruiter Screen (includes AI workflow questions) -> Domain Coding Test (State machines & safe money math) -> System Design (Idempotent BNPL Checkout & GDPR) -> Behavioral.",
+    whatWorked:
+      "Using integer cents/öre (never floats!) in the coding test, modeling state transitions explicitly (`AUTHORIZED -> CAPTURED`), and discussing GDPR crypto-shredding in the Kafka design round.",
+    watchOutFor:
+      "Never use `float` or `double` for currency in Klarna's coding assessment—it is an automatic rejection."
+  },
+  {
+    company: "Supercell / Oura / Sana Labs (Helsinki & Stockholm)",
+    role: "Senior Full-Stack / AI Systems Engineer",
+    outcome: "Onsite Completed",
+    loopSummary:
+      "High-autonomy product engineering loops: Live repo/code hygiene walkthrough + Domain System Design (BLE Ring Sync / Enterprise RAG / Game Server Matchmaking) + Founder/Cell Fit.",
+    whatWorked:
+      "High product empathy. At Supercell they ask 'What game are you playing and how would you improve it?'; at Oura and Sana they probe deeply on battery/latency trade-offs and code craftsmanship.",
+    watchOutFor:
+      "Generic mass-application answers fail quickly in Nordic scale-ups—show genuine curiosity for their specific product domain."
   }
 ];
 
@@ -78,6 +204,9 @@ export default function QuestionBank({
     "Just finished my Databricks L6 Staff System Design round yesterday.\nPrompt: Design a multi-tenant Delta Lake serverless query scheduler and small-file compaction service handling 50k concurrent SQL queries without S3 optimistic lock starvation."
   );
   const [extSimStatus, setExtSimStatus] = useState<string | null>(null);
+  const [selectedWalkthrough, setSelectedWalkthrough] = useState<
+    "spotify" | "wolt" | "stripe"
+  >("spotify");
 
   // Hydrate from SQLite question_bank table
   useEffect(() => {
@@ -561,104 +690,175 @@ export default function QuestionBank({
         </div>
       )}
 
-      {/* TAB 2: ACED.IO ANNOTATED WALKTHROUGH + PRAMP PEER INTERVIEWER RUBRIC */}
+      {/* TAB 2: APPLICANT FEEDBACK, ANNOTATED WALKTHROUGHS & PEER RUBRIC */}
       {subTab === "peer_annotated" && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Left 7 Cols: Annotated Expert Mock Transcript */}
-          <div className="lg:col-span-7 bg-slate-900/60 border border-slate-800 rounded-2xl p-5 space-y-4">
-            <div className="flex items-center gap-2">
-              <MessageSquareQuote className="w-4 h-4 text-indigo-400" />
-              <h3 className="text-sm font-bold text-white">
-                Annotated L6 Staff Interview Walkthrough (Aced.io Format)
-              </h3>
-            </div>
-            <p className="text-xs text-slate-400">
-              See exact Hiring Committee annotations at each timestamp of a real Staff Backend interview:
-            </p>
-
-            <div className="space-y-3.5">
-              {ANNOTATED_WALKTHROUGH.map((step, i) => (
-                <div
-                  key={i}
-                  className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2"
-                >
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-white">
-                      [{step.timestamp}] {step.speaker}
-                    </span>
-                    <span className="px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 text-[10px] font-bold">
-                      {step.badge}
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-300 italic leading-relaxed">
-                    &ldquo;{step.transcript}&rdquo;
-                  </p>
-                  <div className="p-2.5 rounded-lg bg-emerald-950/25 border border-emerald-500/30 text-[11px] text-emerald-200">
-                    <strong>Committee Note:</strong> {step.committeeAnnotation}
-                  </div>
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* Left 7 Cols: Annotated Expert Mock Transcript (Nordic + US Switcher) */}
+            <div className="lg:col-span-7 bg-slate-900/60 border border-slate-800 rounded-2xl p-5 space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <MessageSquareQuote className="w-4 h-4 text-indigo-400" />
+                  <h3 className="text-sm font-bold text-white">
+                    Annotated Onsite Walkthroughs (Nordics & US)
+                  </h3>
                 </div>
-              ))}
+                <div className="flex gap-1.5">
+                  {(
+                    [
+                      { id: "spotify", label: "Spotify (Stockholm)" },
+                      { id: "wolt", label: "Wolt (Helsinki)" },
+                      { id: "stripe", label: "Stripe (US)" }
+                    ] as const
+                  ).map((w) => (
+                    <button
+                      key={w.id}
+                      onClick={() => setSelectedWalkthrough(w.id)}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold cursor-pointer ${
+                        selectedWalkthrough === w.id
+                          ? "bg-indigo-600 text-white"
+                          : "bg-slate-950 border border-slate-800 text-slate-400 hover:text-slate-200"
+                      }`}
+                    >
+                      {w.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <div className="text-xs font-bold text-indigo-300">
+                  {WALKTHROUGH_DECKS[selectedWalkthrough].title}
+                </div>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  {WALKTHROUGH_DECKS[selectedWalkthrough].subtitle}
+                </p>
+              </div>
+
+              <div className="space-y-3.5">
+                {WALKTHROUGH_DECKS[selectedWalkthrough].steps.map((step, i) => (
+                  <div
+                    key={i}
+                    className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2"
+                  >
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-bold text-white">
+                        [{step.timestamp}] {step.speaker}
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 text-[10px] font-bold">
+                        {step.badge}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-300 italic leading-relaxed">
+                      &ldquo;{step.transcript}&rdquo;
+                    </p>
+                    <div className="p-2.5 rounded-lg bg-emerald-950/25 border border-emerald-500/30 text-[11px] text-emerald-200">
+                      <strong>Committee Note:</strong> {step.committeeAnnotation}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Right 5 Cols: Pramp / Aced Practice Peer Interviewer Mode */}
+            <div className="lg:col-span-5 bg-slate-900/60 border border-slate-800 rounded-2xl p-5 space-y-4">
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-cyan-400" />
+                <h3 className="text-sm font-bold text-white">
+                  Peer Interviewer Grading Checklist (Pramp Mode)
+                </h3>
+              </div>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Acting as the interviewer sharpens your own mental rubric. Use this live scorecard when conducting a 30-minute reciprocal peer mock:
+              </p>
+
+              <div className="space-y-2.5">
+                {[
+                  {
+                    id: "clarified_scope",
+                    label: "1. Scoped Functional & Non-Functional SLAs in <5 mins"
+                  },
+                  {
+                    id: "quantified_qps",
+                    label: "2. Calculated Peak Read/Write QPS & Storage footprint"
+                  },
+                  {
+                    id: "api_idempotency",
+                    label: "3. Defined Idempotency-Key & Partition Key on Schema"
+                  },
+                  {
+                    id: "defended_tradeoffs",
+                    label: "4. Defended Redis failover & split-brain edge cases"
+                  }
+                ].map((item) => (
+                  <label
+                    key={item.id}
+                    className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center gap-2.5 text-xs text-slate-200 cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={!!peerChecklist[item.id]}
+                      onChange={() =>
+                        setPeerChecklist((prev) => ({
+                          ...prev,
+                          [item.id]: !prev[item.id]
+                        }))
+                      }
+                      className="rounded border-slate-700"
+                    />
+                    <span>{item.label}</span>
+                  </label>
+                ))}
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-indigo-950/25 border border-indigo-500/30 text-xs text-indigo-200">
+                <strong>Peer Calibration Score:</strong>{" "}
+                {Object.values(peerChecklist).filter(Boolean).length * 25}% (
+                {Object.values(peerChecklist).filter(Boolean).length >= 3
+                  ? "Hire / Strong Hire"
+                  : "Needs Deeper Trade-off Defense"}
+                )
+              </div>
             </div>
           </div>
 
-          {/* Right 5 Cols: Pramp / Aced Practice Peer Interviewer Mode */}
-          <div className="lg:col-span-5 bg-slate-900/60 border border-slate-800 rounded-2xl p-5 space-y-4">
-            <div className="flex items-center gap-2">
-              <Users className="w-4 h-4 text-cyan-400" />
-              <h3 className="text-sm font-bold text-white">
-                Peer Interviewer Grading Checklist (Pramp Mode)
+          {/* Verified Nordic Applicant Feedback, Loop Breakdowns & Take-Home Guides */}
+          <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 space-y-4">
+            <div>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-teal-400">
+                Verified Candidate Post-Mortems & Take-Home Guides
+              </span>
+              <h3 className="text-base font-bold text-white mt-0.5">
+                Nordic Applicant Feedback (Spotify, Wolt, Klarna, Supercell, Oura, Sana)
               </h3>
             </div>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Acting as the interviewer sharpens your own mental rubric. Use this live scorecard when conducting a 30-minute reciprocal peer mock:
-            </p>
 
-            <div className="space-y-2.5">
-              {[
-                {
-                  id: "clarified_scope",
-                  label: "1. Scoped Functional & Non-Functional SLAs in <5 mins"
-                },
-                {
-                  id: "quantified_qps",
-                  label: "2. Calculated Peak Read/Write QPS & Storage footprint"
-                },
-                {
-                  id: "api_idempotency",
-                  label: "3. Defined Idempotency-Key & Partition Key on Schema"
-                },
-                {
-                  id: "defended_tradeoffs",
-                  label: "4. Defended Redis failover & split-brain edge cases"
-                }
-              ].map((item) => (
-                <label
-                  key={item.id}
-                  className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center gap-2.5 text-xs text-slate-200 cursor-pointer"
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {APPLICANT_FEEDBACK_REPORTS.map((rep) => (
+                <div
+                  key={rep.company}
+                  className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2.5 text-xs"
                 >
-                  <input
-                    type="checkbox"
-                    checked={!!peerChecklist[item.id]}
-                    onChange={() =>
-                      setPeerChecklist((prev) => ({
-                        ...prev,
-                        [item.id]: !prev[item.id]
-                      }))
-                    }
-                    className="rounded border-slate-700"
-                  />
-                  <span>{item.label}</span>
-                </label>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-bold text-white text-sm">{rep.company}</span>
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[10px] font-semibold">
+                      {rep.outcome}
+                    </span>
+                  </div>
+                  <div className="text-indigo-300 font-semibold">{rep.role}</div>
+                  <p className="text-slate-400 leading-relaxed">
+                    <strong className="text-slate-200">Loop Structure:</strong> {rep.loopSummary}
+                  </p>
+                  <p className="text-emerald-200/90 leading-relaxed">
+                    <strong className="text-emerald-300">What Got the Offer:</strong>{" "}
+                    {rep.whatWorked}
+                  </p>
+                  <p className="text-amber-200/90 leading-relaxed">
+                    <strong className="text-amber-300">Applicant Warning:</strong>{" "}
+                    {rep.watchOutFor}
+                  </p>
+                </div>
               ))}
-            </div>
-
-            <div className="p-3.5 rounded-xl bg-indigo-950/25 border border-indigo-500/30 text-xs text-indigo-200">
-              <strong>Peer Calibration Score:</strong>{" "}
-              {Object.values(peerChecklist).filter(Boolean).length * 25}% (
-              {Object.values(peerChecklist).filter(Boolean).length >= 3
-                ? "Hire / Strong Hire"
-                : "Needs Deeper Trade-off Defense"}
-              )
             </div>
           </div>
         </div>
