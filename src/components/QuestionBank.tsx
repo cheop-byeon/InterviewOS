@@ -23,7 +23,7 @@ interface QuestionBankProps {
 }
 
 const WALKTHROUGH_DECKS: Record<
-  "spotify" | "wolt" | "stripe",
+  "finn_vg" | "spotify" | "wolt" | "stripe",
   {
     title: string;
     subtitle: string;
@@ -36,6 +36,49 @@ const WALKTHROUGH_DECKS: Record<
     }[];
   }
 > = {
+  finn_vg: {
+    title: "FINN.no / Vend & VG.no (Oslo/Stockholm L5 Loop) — Varnish Edge & Fiks Ferdig Escrow",
+    subtitle:
+      "How FINN.no / Vend Marketplaces (Blocket, Tori, DBA) and Schibsted Media (VG.no, Aftonbladet) evaluate pragmatic architecture and edge resilience:",
+    steps: [
+      {
+        timestamp: "03:20",
+        speaker: "Interviewer (FINN.no Torget / Vend Recommerce — Oslo)",
+        transcript:
+          "On FINN 'Fiks ferdig' (and Blocket/Tori transactional shipping), a popular vintage camera is listed for 2,500 NOK. Three buyers tap 'Buy Now' with Vipps within the same 150ms window. How do you ensure exactly one buyer gets the reservation while Vespa search immediately reflects 'Reserved'?",
+        committeeAnnotation:
+          "FINN/Vend Core Marketplace Probe: Tests atomic inventory locking + avoidance of fragile dual-writes between PostgreSQL and Vespa/OpenSearch.",
+        badge: "Concurrency & Search"
+      },
+      {
+        timestamp: "04:10",
+        speaker: "Candidate (L5 Senior Backend — Offer Accepted)",
+        transcript:
+          "We never dual-write from the HTTP handler. Inside a single PostgreSQL transaction, we execute `UPDATE listings SET status='RESERVED', version=version+1 WHERE ad_id=$1 AND status='ACTIVE'` and insert an `AdReserved` event into our `outbox_events` table. Only one buyer gets `rows_affected = 1`; the other two immediately get HTTP 409 Conflict. Debezium/CDC streams the outbox event to Kafka, updating the Vespa document attribute in <300ms.",
+        committeeAnnotation:
+          "Strong Hire Signal: Combines optimistic concurrency control with the Transactional Outbox pattern—exact pattern used across FINN, Blocket, and Tori.",
+        badge: "Exceeds Bar"
+      },
+      {
+        timestamp: "19:45",
+        speaker: "Interviewer (Schibsted Media / VG.no Platform — Oslo/Stockholm)",
+        transcript:
+          "Now imagine breaking news hits VG.no and Aftonbladet—traffic jumps 50x to 300,000 requests/sec while the newsroom republishes the front page every 5 seconds. What happens when the Varnish cache TTL expires?",
+        committeeAnnotation:
+          "Schibsted/VG Signature Probe: Varnish Cache was originally born at VG! Interviewers expect you to know request coalescing and grace mode.",
+        badge: "VG Edge Spike"
+      },
+      {
+        timestamp: "20:30",
+        speaker: "Candidate (L5 Senior Backend — Offer Accepted)",
+        transcript:
+          "Without protection, a cache miss at 300k QPS causes a thundering herd that melts the CMS origin. In Varnish we configure `beresp.ttl = 5s` with `beresp.grace = 60s` (`stale-while-revalidate`) and request coalescing. When the 5s TTL expires, all 300k concurrent readers are immediately served the slightly stale cached HTML in <5ms while a single background thread coalesces the backend fetch to refresh the cache.",
+        committeeAnnotation:
+          "Strong Hire Verdict: Demonstrates deep mastery of Varnish grace mode + single-flight request coalescing.",
+        badge: "Strong Hire Signal"
+      }
+    ]
+  },
   spotify: {
     title: "Spotify (Stockholm L5 Loop) — Production Case Study & Band Manifesto",
     subtitle:
@@ -133,6 +176,17 @@ const WALKTHROUGH_DECKS: Record<
 
 const APPLICANT_FEEDBACK_REPORTS = [
   {
+    company: "FINN.no / Vend (Blocket, Tori) & Schibsted (VG, Aftonbladet)",
+    role: "Senior Backend / Platform Engineer (Kotlin, Go, TypeScript)",
+    outcome: "Offer Accepted (1.12M NOK + Bonus + 7% Pension — Oslo / Stockholm)",
+    loopSummary:
+      "Recruiter Screen (via Jobylon ATS) -> 60m Pragmatic Pair-Programming / Case Study Review (TDD, clean domain boundaries) -> System Design (Vespa search, Kafka Data Contracts, Fiks Ferdig escrow, or VG Varnish caching) -> Squad Values & Autonomous Culture Fit.",
+    whatWorked:
+      "Understanding the 2024–2025 split between Vend Marketplaces (FINN.no, Blocket, Tori.fi, Oikotie, DBA, Bilbasen) and Schibsted Media (VG, Aftonbladet, Aftenposten, SvD). Talking about Kafka Data Contracts, Vespa search, and Varnish `stale-while-revalidate` resonated immediately.",
+    watchOutFor:
+      "FINN and Schibsted engineers strongly dislike ego and over-complicated 'resume-driven architecture'. Write clean, testable code in the pairing round, explain your trade-offs simply, and emphasize user trust and team autonomy."
+  },
+  {
     company: "Spotify (Stockholm HQ)",
     role: "Senior Backend Engineer (L5)",
     outcome: "Offer Accepted (1.08M SEK + RSU + Relocation)",
@@ -205,8 +259,8 @@ export default function QuestionBank({
   );
   const [extSimStatus, setExtSimStatus] = useState<string | null>(null);
   const [selectedWalkthrough, setSelectedWalkthrough] = useState<
-    "spotify" | "wolt" | "stripe"
-  >("spotify");
+    "finn_vg" | "spotify" | "wolt" | "stripe"
+  >("finn_vg");
 
   // Hydrate from SQLite question_bank table
   useEffect(() => {
@@ -244,10 +298,23 @@ export default function QuestionBank({
     defended_tradeoffs: false
   });
 
-  const nordicSet = new Set(["Spotify", "Klarna", "Wolt", "Sana Labs", "Cognite", "Oura"]);
+  const nordicSet = new Set([
+    "FINN.no / Vend",
+    "Blocket / Tori (Vend)",
+    "VG / Schibsted",
+    "Spotify",
+    "Klarna",
+    "Wolt",
+    "Sana Labs",
+    "Cognite",
+    "Oura"
+  ]);
   const companies = [
     "All",
     "Nordic Hub (All)",
+    "FINN.no / Vend",
+    "Blocket / Tori (Vend)",
+    "VG / Schibsted",
     "Spotify",
     "Klarna",
     "Wolt",
@@ -706,6 +773,7 @@ export default function QuestionBank({
                 <div className="flex gap-1.5">
                   {(
                     [
+                      { id: "finn_vg", label: "FINN / Vend & VG" },
                       { id: "spotify", label: "Spotify (Stockholm)" },
                       { id: "wolt", label: "Wolt (Helsinki)" },
                       { id: "stripe", label: "Stripe (US)" }

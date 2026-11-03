@@ -1044,5 +1044,122 @@ export const SYSTEM_DESIGN_PROBLEMS: SystemDesignProblem[] = [
         keywords: ["crypto-shredding", "kms", "dek", "gdpr", "immutable", "tokenization"]
       }
     ]
+  },
+  {
+    id: "finn_vend_schibsted",
+    title: "Design FINN.no / Vend Marketplaces & VG Breaking-News Edge (Schibsted)",
+    companyTags: ["FINN.no", "Vend", "Schibsted", "VG.no", "Blocket", "Tori.fi"],
+    difficulty: "Hard",
+    category: "Distributed Systems",
+    estimatedMinutes: 45,
+    promptSummary:
+      "Design the core marketplace search, 'Fiks Ferdig' transactional recommerce escrow, and Kafka Data Mesh powering Vend (FINN.no, Blocket.se, Tori.fi, DBA.dk), paired with Varnish edge-caching and unified SSO (Schibsted Account) capable of absorbing 50x breaking-news traffic spikes on VG.no and Aftonbladet.",
+    functionalRequirements: [
+      "Sub-50ms multi-vertical faceted & geo-spatial search (Real Estate, Mobility/Cars, Torget Recommerce, Jobs) using Vespa / Elasticsearch",
+      "'Fiks Ferdig' Transactional Escrow: Atomically reserve a second-hand item, hold buyer funds via Vipps/Klarna, and auto-release payout upon Posten/Helthjem delivery webhook",
+      "Kafka Event Stream & Data Mesh: Propagate listing mutations across domains with strict Avro/Protobuf Data Contracts",
+      "VG.no / Aftonbladet Breaking-News Shield: Serve front-page feeds via Varnish Edge (`stale-while-revalidate` + request coalescing) during 50x traffic spikes"
+    ],
+    nonFunctionalRequirements: [
+      "99.99% read availability during viral listings or breaking news via Varnish micro-TTL caching and single-flight origin shielding",
+      "Near-real-time search index freshness (<1.5s from listing publish/price-drop to searchable in Vespa/OpenSearch)",
+      "Strict ACID reservation on 'Fiks Ferdig' recommerce items so two buyers never purchase the same unique listing"
+    ],
+    capacityDefaults: {
+      dau: "18M Nordic DAU across FINN.no, Blocket, Tori, DBA, VG & Aftonbladet",
+      readQps: "320,000 peak front-page & faceted search queries/sec",
+      writeQps: "25,000 listing updates, clickstream events & escrow state transitions/sec",
+      storagePerYear: "1.2 PB high-res listing images (CDN/S3) + 80 TB Vespa/Elastic search indices",
+      bandwidth: "18 GB/s Varnish / Fastly edge egress"
+    },
+    apiEndpoints: [
+      {
+        method: "GET",
+        path: "/api/v1/search/finn-torget?q=sykkel&lat=59.91&lon=10.75&radiusKm=15",
+        description: "Executes hybrid lexical + vector + geo-bounding-box query on Vespa/OpenSearch with faceted counts",
+        payload: "Response: { hits: [...], facets: { category: 1420, priceBucket: ... }, latencyMs: 18 }"
+      },
+      {
+        method: "POST",
+        path: "/api/v1/fiks-ferdig/reserve/{adId}",
+        description: "Places an idempotent 15-minute checkout lock on a classified ad and initiates Vipps/Klarna payment hold",
+        payload: "Headers: { 'Idempotency-Key': 'uuid' }, Body: { buyerId, shippingCarrier: 'POSTEN_NO', offerPriceNok: 2500 }"
+      }
+    ],
+    coreEntities: [
+      {
+        table: "marketplace_listings (PostgreSQL + Outbox -> Kafka)",
+        dbType: "Relational ACID + CDC",
+        schema: "ad_id, vertical (TORGET|EIENDOM|BIL), seller_id, status (ACTIVE|RESERVED|SOLD), price_minor, version",
+        partitionKey: "ad_id"
+      },
+      {
+        table: "vespa_search_index (Vespa / OpenSearch Cluster)",
+        dbType: "Hybrid Vector + Geo Index",
+        schema: "ad_id, title_bm25, image_embedding_512d, h3_geo_cell, facets_map, published_epoch",
+        partitionKey: "h3_geo_cell"
+      }
+    ],
+    starterNodes: [
+      { id: "nordic_client", label: "FINN / VG / Blocket App", sublabel: "iOS / Android / Web", category: "client", x: 35, y: 180 },
+      { id: "varnish_cdn", label: "Varnish Edge Shield", sublabel: "Stale-While-Revalidate", category: "edge", x: 255, y: 180 },
+      { id: "marketplace_svc", label: "Listing & Escrow Svc", sublabel: "Kotlin / Go on EKS", category: "compute", x: 485, y: 100 },
+      { id: "vespa_search", label: "Vespa / Elastic Cluster", sublabel: "Geo + Vector Search", category: "search_ai", x: 485, y: 265 }
+    ],
+    starterEdges: [
+      { id: "e1", from: "nordic_client", to: "varnish_cdn", protocol: "HTTPS" },
+      { id: "e2", from: "varnish_cdn", to: "marketplace_svc", protocol: "Origin Miss" },
+      { id: "e3", from: "varnish_cdn", to: "vespa_search", protocol: "Faceted Query" }
+    ],
+    referenceNodes: [
+      { id: "nordic_client", label: "FINN / VG / Tori Client", sublabel: "Schibsted Account SSO", category: "client", x: 30, y: 180 },
+      { id: "varnish_edge", label: "Varnish Edge & CDN", sublabel: "Request Coalescing (1s TTL)", category: "edge", x: 235, y: 180 },
+      { id: "listing_svc", label: "Listing & Fiks Ferdig Svc", sublabel: "Kotlin/Java + PostgreSQL", category: "compute", x: 455, y: 80 },
+      { id: "kafka_mesh", label: "Kafka Data Mesh Bus", sublabel: "Avro Schema Registry", category: "queue", x: 455, y: 275 },
+      { id: "vespa_cluster", label: "Vespa / OpenSearch", sublabel: "BM25 + Vector + Geo Facets", category: "search_ai", x: 710, y: 120 },
+      { id: "snowflake_ai", label: "Data Mesh & AI Recommend", sublabel: "Real-Time Personalization", category: "database", x: 710, y: 275 }
+    ],
+    referenceEdges: [
+      { id: "re1", from: "nordic_client", to: "varnish_edge", protocol: "HTTPS" },
+      { id: "re2", from: "varnish_edge", to: "listing_svc", protocol: "Write / Escrow" },
+      { id: "re3", from: "varnish_edge", to: "vespa_cluster", protocol: "Search (<25ms)" },
+      { id: "re4", from: "listing_svc", to: "kafka_mesh", protocol: "Transactional Outbox" },
+      { id: "re5", from: "kafka_mesh", to: "vespa_cluster", protocol: "Async Index (<1.5s)" },
+      { id: "re6", from: "kafka_mesh", to: "snowflake_ai", protocol: "Data Contract Stream" }
+    ],
+    requiredArchitectureKeywords: [
+      "varnish",
+      "kafka",
+      "vespa",
+      "elasticsearch",
+      "outbox",
+      "schema",
+      "escrow",
+      "idempotency",
+      "coalescing"
+    ],
+    deepDiveQuestions: [
+      {
+        level: "L4",
+        question: "When a seller uploads a new apartment or bicycle on FINN.no/Blocket, why shouldn't the HTTP POST handler synchronously write to both PostgreSQL and Elasticsearch/Vespa?",
+        idealTradeoff:
+          "Synchronous dual-writes risk partial failure (e.g., PostgreSQL commits, Vespa times out -> permanent state drift) and slow down API latency. Instead, write the listing + an `outbox_event` row in a single PostgreSQL ACID transaction, stream via Debezium/Kafka, and index into Vespa asynchronously within ~1 second.",
+        keywords: ["dual-write", "outbox", "kafka", "acid", "eventual consistency"]
+      },
+      {
+        level: "L5",
+        question: "Major breaking news hits VG.no / Aftonbladet and traffic jumps 50x to 300,000 requests/sec in 10 seconds. How does Varnish prevent the origin CMS and personalization services from melting?",
+        idealTradeoff:
+          "Configure Varnish with `stale-while-revalidate` (e.g., 2s TTL + 30s grace period) and **Request Coalescing (Single-Flight)**: when the 2s cache expires and 10,000 requests arrive simultaneously, Varnish parks 9,999 requests on a wait-list, sends exactly ONE background request to the origin CMS, and serves the slightly stale cached HTML in <5ms while refreshing.",
+        keywords: ["varnish", "stale-while-revalidate", "coalescing", "single-flight", "grace"]
+      },
+      {
+        level: "L6",
+        question: "Vend operates federated marketplaces across 4 countries (FINN in Norway, Blocket in Sweden, Tori in Finland, DBA in Denmark) using a Data Mesh. How do you prevent an upstream Kotlin service schema change in FINN from breaking central ML recommendation pipelines?",
+        idealTradeoff:
+          "Enforce strict **Data Contracts** at the Kafka Schema Registry (Protobuf/Avro with `BACKWARD_TRANSITIVE` compatibility checks in CI/CD). Any breaking field removal or type mutation fails the GitHub Actions build before deployment, and dead-letter queues isolate malformed events.",
+        keywords: ["data contract", "schema registry", "avro", "protobuf", "backward", "data mesh"]
+      }
+    ]
   }
 ];

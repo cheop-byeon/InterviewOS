@@ -773,6 +773,70 @@ export const COMPANY_QUESTION_BANK: CompanyQuestionItem[] = [
       "O(N log N) interval sorting by start epoch + monotonic merge with gap tolerance threshold.",
     linkedModule: "mock_interview",
     linkedTopicId: "merge_intervals_calendar"
+  },
+  {
+    id: "q_finn_vend_1",
+    company: "FINN.no / Vend",
+    role: "Backend / Distributed Systems",
+    level: "L5",
+    roundType: "System Design",
+    questionTitle: "Design FINN.no Real-Time Faceted Search (Vespa) & 'Fiks Ferdig' Transactional Escrow (Oslo)",
+    details:
+      "Oslo Grensen Onsite Loop: Support sub-50ms multi-facet geo search across 12M+ Mobility, Real Estate, and Torget listings while preventing double-buying on 'Fiks Ferdig' integrated shipping & Vipps/Klarna escrow.",
+    askedAgo: "Asked 1 day ago • Oslo",
+    frequency: "High Frequency",
+    keyRubricSignal:
+      "Transactional Outbox -> Kafka -> Vespa near-real-time indexing + PostgreSQL optimistic version locking (`version = version + 1`) with 10-minute reservation TTL.",
+    linkedModule: "system_design",
+    linkedTopicId: "finn_vend_schibsted"
+  },
+  {
+    id: "q_blocket_tori_1",
+    company: "Blocket / Tori (Vend)",
+    role: "Backend / Distributed Systems",
+    level: "L6",
+    roundType: "System Design",
+    questionTitle: "Design a Federated Cross-Nordic Marketplace Data Mesh & Kafka Event Contract Platform (Stockholm / Helsinki)",
+    details:
+      "Vend Marketplaces Staff Loop: Unify ad-lifecycle events, buyer-seller messaging, and fraud signals across FINN.no (Norway), Blocket & Qasa (Sweden), Tori.fi & Oikotie (Finland), and DBA.dk & Bilbasen (Denmark) without central DB coupling.",
+    askedAgo: "Asked 2 days ago • Stockholm / Helsinki",
+    frequency: "Verified Onsite",
+    keyRubricSignal:
+      "Federated Kafka Data Mesh with Confluent Schema Registry (Avro/Protobuf backward-compatibility CI gates) + per-domain data product ownership.",
+    linkedModule: "system_design",
+    linkedTopicId: "finn_vend_schibsted"
+  },
+  {
+    id: "q_vg_schibsted_1",
+    company: "VG / Schibsted",
+    role: "Backend / Distributed Systems",
+    level: "L5",
+    roundType: "System Design",
+    questionTitle: "Design VG.no & Aftonbladet Breaking-News Varnish Edge Shield & Cross-Brand SSO Paywall (Oslo / Stockholm)",
+    details:
+      "Schibsted Media Onsite Loop: Absorb a 50x breaking-news traffic surge (300,000+ QPS) within 10 seconds when journalists update the live front page every 5 seconds, while enforcing Schibsted Account (SPiD) subscriber paywalls.",
+    askedAgo: "Asked 2 days ago • Oslo / Stockholm",
+    frequency: "High Frequency",
+    keyRubricSignal:
+      "Varnish Cache `stale-while-revalidate` + single-flight request coalescing (waiting list on cache miss) + stateless JWT/Edge KV paywall verification.",
+    linkedModule: "system_design",
+    linkedTopicId: "finn_vend_schibsted"
+  },
+  {
+    id: "q_schibsted_ai_1",
+    company: "FINN.no / Vend",
+    role: "AI / ML Infrastructure",
+    level: "L5",
+    roundType: "AI Architecture",
+    questionTitle: "Design Multimodal 'Snap-to-Sell' Listing Assistant & Real-Time Scam Detection Pipeline (Schibsted / Vend AI)",
+    details:
+      "Nordic AI Foundations Loop: Seller uploads 3 photos of a used bicycle or sofa on FINN/Blocket/Tori; generate structured category attributes, fair Nordic price range from historical Vespa comps, and block phishing scammers before publication.",
+    askedAgo: "Asked 3 days ago • Oslo / Stockholm",
+    frequency: "Trending",
+    keyRubricSignal:
+      "Vision-LLM structured output extraction (Pydantic AI / vLLM) + Vespa hybrid vector/attribute kNN price lookup + synchronous risk-score gate before Kafka `AdPublished` event.",
+    linkedModule: "system_design",
+    linkedTopicId: "finn_vend_schibsted"
   }
 ];
 
@@ -890,6 +954,20 @@ export const INITIAL_JOB_CARDS: JobApplicationCard[] = [
     updatedAt: "Yesterday • Nordic Hub",
     linkedProblemId: "klarna_vipps_payments",
     notes: "Emphasize Kafka transactional outbox, EU GDPR crypto-shredding with KMS, and sub-80ms checkout SLAs."
+  },
+  {
+    id: "job_7_finn_schibsted",
+    company: "FINN.no / Vend & Schibsted (Oslo / Stockholm)",
+    role: "Senior Platform Engineer — Marketplaces (Blocket/Tori) & VG Edge",
+    level: "L5",
+    compensation: "950k – 1.25M NOK / SEK + Pension & Bonus",
+    stage: "onsite",
+    atsMatchScore: 89,
+    mockReadinessScore: 87,
+    nextAction: "Practice FINN.no Vespa Search, Fiks Ferdig Escrow & VG Varnish Edge",
+    updatedAt: "Today • Oslo / Stockholm",
+    linkedProblemId: "finn_vend_schibsted",
+    notes: "Loop via Jobylon ATS: 1) 60m TDD Pair Programming / Case Review (Kotlin/TS), 2) System Design (FINN Fiks Ferdig & VG Varnish Edge), 3) Autonomous Squad Values Round."
   }
 ];
 

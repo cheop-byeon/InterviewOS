@@ -235,6 +235,36 @@ export const COMPANY_INSIDER_RUBRICS: CompanyRubricProfile[] = [
       L5: "Senior Engineer: Designs resilient Kafka/PostgreSQL event flows, handles GDPR/idempotency edge cases, and leads incident recovery.",
       L6: "Staff / Principal: Architects multi-country EU payment/logistics platforms, regulatory compliance by design, and cross-domain SLAs."
     }
+  },
+  {
+    id: "finn_vend_schibsted",
+    company: "FINN.no / Vend & Schibsted",
+    loopStyleName: "Federated Marketplaces (Blocket/Tori/DBA), Vespa Search & VG Edge",
+    badgeColor: "bg-blue-500/20 text-blue-300 border-blue-500/30",
+    corePhilosophy:
+      "Vend Marketplaces (FINN.no in Oslo, Blocket in Stockholm, Tori/Oikotie in Helsinki, DBA/Bilbasen in Denmark) and Schibsted Media (VG.no, Aftonbladet, Aftenposten, SvD) value pragmatic TDD pair-programming, Kafka Data Mesh contracts, Vespa/OpenSearch faceted search, and Varnish edge caching for breaking-news spikes.",
+    interviewerPersonaPrompt:
+      "You are a Staff Platform & Marketplace Engineer at FINN.no / Vend & Schibsted in Oslo/Stockholm. Probe the candidate on Kafka schema evolution (Data Contracts across FINN/Blocket/Tori), Vespa/Elasticsearch faceted geo-search, 'Fiks Ferdig' transactional escrow locking, and Varnish stale-while-revalidate request coalescing on VG.no.",
+    mustHitSignals: [
+      "Transactional Outbox -> Kafka -> Vespa/OpenSearch indexing instead of brittle dual-writes",
+      "Data Mesh governance: Avro/Protobuf backward-compatible Data Contracts across federated Nordic brands",
+      "Varnish edge caching (`stale-while-revalidate` + single-flight request coalescing) for VG/Aftonbladet traffic spikes",
+      "Pragmatic, user-centric Nordic engineering culture (trust, sustainable velocity, TDD, low hierarchy)"
+    ],
+    autoFailRedFlags: [
+      "Synchronous dual-writes to PostgreSQL and Elasticsearch/Vespa inside the HTTP request thread",
+      "Breaking downstream Data Mesh consumers by mutating Kafka event schemas without backward compatibility",
+      "Letting 300k QPS breaking-news traffic bypass Varnish/CDN and hit the origin database directly"
+    ],
+    followUpProbes: [
+      "When a seller publishes or updates a listing on FINN.no / Blocket, how do you guarantee the Vespa search index updates within 1 second without dual-write race conditions?",
+      "Major breaking news hits VG.no and traffic jumps 50x in 15 seconds. What happens at the Varnish layer when a cached front-page object expires while 10,000 requests are in flight?"
+    ],
+    levelBarDiff: {
+      L4: "Developer: Writes clean, well-tested Kotlin/Java/Go/TS code, practices TDD, and understands REST/Kafka basics.",
+      L5: "Senior Engineer: Owns end-to-end domain services (Search, Fiks Ferdig Escrow, Schibsted Account SSO) and defends caching/consistency trade-offs.",
+      L6: "Staff / Principal Architect: Aligns cross-country platform architecture across FINN, Blocket, Tori, and DBA using Data Mesh contracts and Golden Paths."
+    }
   }
 ];
 
@@ -325,11 +355,11 @@ export const ATS_VENDOR_PROFILES: AtsVendorProfile[] = [
   },
   {
     id: "teamtailor",
-    name: "Teamtailor Nordic ATS",
-    marketShare: "#1 in Sweden, Finland, Norway & Denmark (8,000+ Nordic Tech Employers)",
-    usedByCompanies: ["Sana Labs", "Epidemic Sound", "Kry", "Einride", "Polestar", "Oura"],
+    name: "Teamtailor & Jobylon Nordic ATS",
+    marketShare: "#1 in Sweden, Norway, Finland & Denmark (8,000+ Nordic Employers incl. FINN/Vend & Schibsted)",
+    usedByCompanies: ["FINN.no / Vend", "Schibsted / VG", "Sana Labs", "Epidemic Sound", "Einride", "Oura"],
     parsingBehavior:
-      "Modern AI-assisted Nordic ATS (headquartered in Stockholm). Parses clean PDF layouts well, auto-tags core stack skills (Kotlin, TypeScript, Go, Python, Kafka, GCP/AWS), and surfaces collaborative ownership, EU/Nordic relocation/work-permit status, and product impact.",
+      "Modern AI-assisted Nordic ATS platforms (headquartered in Stockholm). Parses clean PDF layouts well, auto-tags core stack skills (Kotlin, Java, TypeScript, Go, Python, Kafka, Vespa, GCP/AWS), and surfaces collaborative ownership, EU/EEA work-permit status, and product impact.",
     weights: {
       hardSkillWeight: 0.35,
       architectureWeight: 0.30,
@@ -342,6 +372,6 @@ export const ATS_VENDOR_PROFILES: AtsVendorProfile[] = [
       requireStandardDateHeaders: true
     },
     recruiterTip:
-      "Nordic hiring managers using Teamtailor value low-ego team impact alongside individual metrics—highlight both quantified system outcomes AND cross-functional Squad/Tribe collaboration."
+      "Nordic hiring managers using Teamtailor and Jobylon (used by Schibsted/Vend) value low-ego team impact alongside individual metrics—highlight both quantified system outcomes AND cross-functional Squad/Tribe collaboration."
   }
 ];
