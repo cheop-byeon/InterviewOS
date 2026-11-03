@@ -73,7 +73,7 @@ export const SYSTEM_DESIGN_PROBLEMS: SystemDesignProblem[] = [
       { id: "client", label: "Web / Mobile Client", sublabel: "React / iOS / Android", category: "client", x: 50, y: 180 },
       { id: "gateway", label: "API Gateway", sublabel: "Auth, Rate Limit, Routing", category: "edge", x: 260, y: 180 },
       { id: "booking_svc", label: "Booking Service", sublabel: "Reservation & Checkout", category: "compute", x: 500, y: 180 },
-      { id: "postgres", label: "Primary Relational DB", sublabel: "PostgreSQL (ACID)", category: "database", x: 760, y: 180 }
+      { id: "postgres", label: "Primary Relational DB", sublabel: "PostgreSQL (ACID)", category: "database", x: 740, y: 180 }
     ],
     starterEdges: [
       { id: "e1", from: "client", to: "gateway", protocol: "HTTPS / WSS" },
@@ -81,14 +81,14 @@ export const SYSTEM_DESIGN_PROBLEMS: SystemDesignProblem[] = [
       { id: "e3", from: "booking_svc", to: "postgres", protocol: "SQL" }
     ],
     referenceNodes: [
-      { id: "client", label: "Web / Mobile Client", sublabel: "SSE Seat Updates", category: "client", x: 40, y: 180 },
-      { id: "cdn", label: "CDN & Waiting Room", sublabel: "Cloudflare / Virtual Queue", category: "edge", x: 220, y: 80 },
-      { id: "gateway", label: "API Gateway", sublabel: "Token Validation & Rate Limit", category: "edge", x: 220, y: 260 },
-      { id: "event_svc", label: "Event & Seat Map Svc", sublabel: "Read-Heavy Microservice", category: "compute", x: 450, y: 90 },
-      { id: "booking_svc", label: "Booking & Hold Svc", sublabel: "Atomic Seat Reservation", category: "compute", x: 450, y: 260 },
-      { id: "redis_lock", label: "Redis Cluster", sublabel: "SET NX EX 600 Seat Hold", category: "cache", x: 710, y: 110 },
-      { id: "postgres", label: "PostgreSQL Shards", sublabel: "Optimistic Locking / ACID", category: "database", x: 710, y: 250 },
-      { id: "kafka", label: "Kafka Event Bus", sublabel: "Payment & Expiration Events", category: "queue", x: 710, y: 370 }
+      { id: "client", label: "Web / Mobile Client", sublabel: "SSE Seat Updates", category: "client", x: 30, y: 180 },
+      { id: "cdn", label: "CDN & Waiting Room", sublabel: "Cloudflare / Virtual Queue", category: "edge", x: 230, y: 80 },
+      { id: "gateway", label: "API Gateway", sublabel: "Token Validation & Rate Limit", category: "edge", x: 230, y: 260 },
+      { id: "event_svc", label: "Event & Seat Map Svc", sublabel: "Read-Heavy Microservice", category: "compute", x: 460, y: 90 },
+      { id: "booking_svc", label: "Booking & Hold Svc", sublabel: "Atomic Seat Reservation", category: "compute", x: 460, y: 260 },
+      { id: "redis_lock", label: "Redis Cluster", sublabel: "SET NX EX 600 Seat Hold", category: "cache", x: 700, y: 100 },
+      { id: "postgres", label: "PostgreSQL Shards", sublabel: "Optimistic Locking / ACID", category: "database", x: 700, y: 230 },
+      { id: "kafka", label: "Kafka Event Bus", sublabel: "Payment & Expiration Events", category: "queue", x: 700, y: 340 }
     ],
     referenceEdges: [
       { id: "re1", from: "client", to: "cdn", protocol: "HTTPS" },
@@ -116,22 +116,135 @@ export const SYSTEM_DESIGN_PROBLEMS: SystemDesignProblem[] = [
         level: "L4",
         question: "How do you prevent two users from booking the exact same seat at the exact same millisecond, and what happens if a user closes their browser during checkout?",
         idealTradeoff:
-          "Use a two-phase reservation with a Distributed Lock in Redis (`SET seat:{eventId}:{seatId} {userId} NX EX 600`) backed by PostgreSQL optimistic concurrency control (`UPDATE seats SET status='BOOKED', version=version+1 WHERE seat_id=$1 AND version=$2`). If the user abandons checkout, the 600s Redis TTL automatically expires and releases the seat without requiring cron sweeps.",
+          "Use a two-phase reservation with a Distributed Lock in Redis (`SET seat:{eventId}:{seatId} {userId} NX EX 600`) backed by PostgreSQL optimistic concurrency control (`UPDATE seats SET status='BOOKED', version=version+1 WHERE seat_id=$1 AND version=$2`). If the user abandons checkout, the 600s Redis TTL automatically expires.",
         keywords: ["redis", "nx", "ttl", "optimistic locking", "version", "acid", "timeout"]
       },
       {
         level: "L5",
         question: "When Taylor Swift tickets drop, 5 million fans hit the page at 10:00:00 AM. How do you protect your database and Redis cluster from thundering herd collapse while maintaining fairness?",
         idealTradeoff:
-          "Introduce a Virtual Waiting Room (Queue-It pattern) at the Edge/Gateway layer. Users entering the lobby are assigned an encrypted queue position in a Redis Sorted Set (`ZADD`) and polled via SSE/WebSocket. Only N thousand active tokens per minute are admitted to the actual seat map & booking service, smoothing a 5M spike into a predictable, bounded QPS.",
+          "Introduce a Virtual Waiting Room at the Edge/Gateway layer. Users entering the lobby are assigned an encrypted queue position in a Redis Sorted Set (`ZADD`) and polled via SSE. Only N thousand active tokens per minute are admitted to the booking service.",
         keywords: ["virtual waiting room", "sorted set", "edge", "rate limit", "token", "sse", "thundering herd"]
       },
       {
         level: "L6",
         question: "What happens if the Redis node holding active 10-minute seat locks crashes before replicating to its replica? How do you guarantee zero double-booking even under Redis failover?",
         idealTradeoff:
-          "Treat Redis strictly as a fast concurrency gate + TTL cache, while PostgreSQL remains the source of truth with a unique constraint on `(event_id, seat_id)` and `held_until` timestamp. On Redis failover, reconstruct holds from DB or require fencing tokens (monotonically increasing lock epoch IDs) verified by PostgreSQL during final payment commit.",
+          "Treat Redis strictly as a fast concurrency gate + TTL cache, while PostgreSQL remains the source of truth with a unique constraint on `(event_id, seat_id)` and `held_until` timestamp, or verify monotonically increasing fencing tokens during final payment commit.",
         keywords: ["fencing token", "failover", "source of truth", "held_until", "idempotency", "split brain"]
+      }
+    ]
+  },
+  {
+    id: "openai_llm_inference",
+    title: "Design OpenAI LLM Inference & KV-Cache Serving Cluster",
+    companyTags: ["OpenAI", "Anthropic", "Google DeepMind", "Meta", "NVIDIA"],
+    difficulty: "Staff+",
+    category: "GenAI & ML Systems",
+    estimatedMinutes: 45,
+    promptSummary:
+      "Design a high-throughput, low-latency distributed LLM serving platform (like ChatGPT / Claude API) that handles millions of streaming token generation requests with dynamic continuous batching, prefix KV-cache routing, and GPU fault recovery.",
+    functionalRequirements: [
+      "Users/APIs submit multi-turn chat prompts and receive real-time SSE token streams",
+      "Support Continuous In-Flight Batching (iteration-level scheduling) across GPU workers",
+      "Prefix KV-Cache reuse so multi-turn conversations and shared system prompts avoid redundant prefill compute",
+      "Enforce per-organization Requests-Per-Minute (RPM) and Tokens-Per-Minute (TPM) rate limits"
+    ],
+    nonFunctionalRequirements: [
+      "Time-To-First-Token (TTFT) < 350ms; Inter-Token Latency (ITL) < 25ms per token",
+      "Maximize GPU HBM memory utilization (>85%) using PagedAttention virtual memory blocks",
+      "Graceful worker failover: if a GPU node crashes mid-stream, transparently resume generation without dropping the user session",
+      "Disaggregate Prefill (compute-bound) and Decode (memory-bandwidth-bound) phases across specialized GPU pools"
+    ],
+    capacityDefaults: {
+      dau: "100M DAU, 250,000 concurrent streaming SSE connections",
+      readQps: "50,000 prompt requests/sec (~15M output tokens/sec)",
+      writeQps: "50,000 conversation state & telemetry logs/sec",
+      storagePerYear: "80 GB HBM per H100 GPU; Distributed NVMe/RDMA KV-Cache pool",
+      bandwidth: "400 Gbps InfiniBand / RoCE RDMA for KV-Cache transfer"
+    },
+    apiEndpoints: [
+      {
+        method: "POST",
+        path: "/v1/chat/completions (SSE Stream)",
+        description: "Submit chat messages array and stream back generated tokens via Server-Sent Events",
+        payload: "{ model: 'gpt-4o', messages: [...], stream: true, max_tokens: 2048 }"
+      }
+    ],
+    coreEntities: [
+      {
+        table: "PrefixKVCacheRoutingTree",
+        dbType: "In-Memory Radix Tree (Consistent Prefix Router)",
+        schema: "token_prefix_hash PK -> { gpu_worker_id, kv_block_ids[], last_accessed_ts }",
+        partitionKey: "token_prefix_hash"
+      },
+      {
+        table: "TokenRateLimitBuckets",
+        dbType: "Redis Cluster (Atomic Lua Token Bucket)",
+        schema: "org_id PK -> { rpm_tokens, tpm_tokens, last_refill_ms }",
+        partitionKey: "org_id"
+      }
+    ],
+    starterNodes: [
+      { id: "api_client", label: "SDK / Chat Client", sublabel: "SSE Token Stream", category: "client", x: 35, y: 180 },
+      { id: "llm_gateway", label: "API & TPM Rate Limiter", sublabel: "Token Bucket Lua", category: "edge", x: 245, y: 180 },
+      { id: "kv_router", label: "Prefix-Aware Router", sublabel: "Radix Tree KV Affinity", category: "compute", x: 475, y: 180 },
+      { id: "gpu_fleet", label: "vLLM GPU Worker Fleet", sublabel: "PagedAttention H100s", category: "search_ai", x: 700, y: 180 }
+    ],
+    starterEdges: [
+      { id: "e1", from: "api_client", to: "llm_gateway", protocol: "SSE / HTTPS" },
+      { id: "e2", from: "llm_gateway", to: "kv_router", protocol: "gRPC Stream" },
+      { id: "e3", from: "kv_router", to: "gpu_fleet", protocol: "Schedule Batch" }
+    ],
+    referenceNodes: [
+      { id: "api_client", label: "SDK / Chat Client", sublabel: "SSE Token Stream", category: "client", x: 30, y: 180 },
+      { id: "llm_gateway", label: "API Gateway & Guardrails", sublabel: "TPM/RPM Rate Limit", category: "edge", x: 225, y: 180 },
+      { id: "kv_router", label: "Radix Prefix Router", sublabel: "KV-Cache Locality Scheduler", category: "compute", x: 440, y: 100 },
+      { id: "redis_tpm", label: "Redis Token Bucket", sublabel: "Org Quota Tracking", category: "cache", x: 440, y: 270 },
+      { id: "prefill_pool", label: "Prefill GPU Pool", sublabel: "Compute-Bound Prompt Pass", category: "search_ai", x: 685, y: 75 },
+      { id: "decode_pool", label: "Decode GPU Pool", sublabel: "Memory-Bound Token Gen", category: "search_ai", x: 685, y: 210 },
+      { id: "kv_store", label: "RDMA Distributed KV Pool", sublabel: "PagedAttention Block Cache", category: "database", x: 685, y: 335 }
+    ],
+    referenceEdges: [
+      { id: "re1", from: "api_client", to: "llm_gateway", protocol: "SSE" },
+      { id: "re2", from: "llm_gateway", to: "redis_tpm", protocol: "Check TPM" },
+      { id: "re3", from: "llm_gateway", to: "kv_router", protocol: "Route Prefix" },
+      { id: "re4", from: "kv_router", to: "prefill_pool", protocol: "Prefill Batch" },
+      { id: "re5", from: "prefill_pool", to: "decode_pool", protocol: "RDMA KV Transfer" },
+      { id: "re6", from: "decode_pool", to: "kv_store", protocol: "Swap KV Blocks" }
+    ],
+    requiredArchitectureKeywords: [
+      "kv cache",
+      "continuous batching",
+      "pagedattention",
+      "prefill",
+      "decode",
+      "ttft",
+      "radix",
+      "rate limit",
+      "sse"
+    ],
+    deepDiveQuestions: [
+      {
+        level: "L4",
+        question: "Why does static batching waste up to 70% of GPU compute on LLM inference, and how does Continuous (Iteration-Level) Batching solve it?",
+        idealTradeoff:
+          "In static batching, if Request A finishes at 20 tokens and Request B generates 1,000 tokens, the GPU slot for Request A sits idle waiting for B to finish. Continuous batching schedules at the single-token iteration level, immediately evicting completed sequences and injecting new queued prompts into the next forward pass.",
+        keywords: ["continuous batching", "iteration", "gpu", "idle", "padding"]
+      },
+      {
+        level: "L5",
+        question: "Why should a global load balancer NOT use simple Round-Robin routing across LLM GPU workers for multi-turn chat?",
+        idealTradeoff:
+          "Round-robin destroys KV-Cache locality, forcing every turn of a 30k-token conversation to recompute the entire prompt prefill from scratch. Instead, use a Radix-Tree Prefix-Aware Router (like SGLang/vLLM) that hashes token prefixes and routes requests to the GPU worker already holding those KV blocks in HBM.",
+        keywords: ["prefix", "radix", "kv cache", "locality", "prefill", "round-robin"]
+      },
+      {
+        level: "L6",
+        question: "Why do frontier serving clusters disaggregate Prefill and Decode onto separate GPU pools?",
+        idealTradeoff:
+          "Prefill (processing 10k input tokens in parallel) is compute-bound and spikes TTFT when mixed with Decode. Decode (generating 1 token at a time) is memory-bandwidth-bound. Disaggregating them lets you optimize Prefill nodes for FLOPs and transfer the resulting KV-Cache blocks over 400Gbps RDMA to high-bandwidth Decode nodes for jitter-free token streaming.",
+        keywords: ["disaggregate", "prefill", "decode", "compute-bound", "memory-bound", "rdma", "ttft"]
       }
     ]
   },
@@ -153,7 +266,7 @@ export const SYSTEM_DESIGN_PROBLEMS: SystemDesignProblem[] = [
     nonFunctionalRequirements: [
       "Ultra-high write throughput for driver telemetry (~500,000 GPS pings/sec)",
       "Low-latency spatial queries (<100ms to find K nearest available drivers within 3km)",
-      "High availability over strict consistency for location pings; strong consistency for ride state transitions (no driver matched to two rides at once)",
+      "High availability over strict consistency for location pings; strong consistency for ride state transitions",
       "Horizontal scalability partitioned by geographic region / city"
     ],
     capacityDefaults: {
@@ -175,12 +288,6 @@ export const SYSTEM_DESIGN_PROBLEMS: SystemDesignProblem[] = [
         path: "/api/v1/rides/request",
         description: "Create a ride request and trigger spatial dispatch matching",
         payload: "{ riderId, pickupLat, pickupLng, destLat, destLng, tier: 'UberX' }"
-      },
-      {
-        method: "POST",
-        path: "/api/v1/rides/{rideId}/accept",
-        description: "Driver accepts a dispatched ride offer within the 15-second lock window",
-        payload: "{ driverId, offerToken } -> { status: 'MATCHED', routePolyline }"
       }
     ],
     coreEntities: [
@@ -193,7 +300,7 @@ export const SYSTEM_DESIGN_PROBLEMS: SystemDesignProblem[] = [
       {
         table: "Trips",
         dbType: "PostgreSQL / Spanner (Sharded by city_id)",
-        schema: "trip_id PK, rider_id, driver_id, city_id, status (REQUESTED|MATCHED|IN_PROGRESS|COMPLETED), fare",
+        schema: "trip_id PK, rider_id, driver_id, city_id, status, fare",
         partitionKey: "city_id"
       }
     ],
@@ -201,7 +308,7 @@ export const SYSTEM_DESIGN_PROBLEMS: SystemDesignProblem[] = [
       { id: "driver_app", label: "Driver & Rider Apps", sublabel: "GPS Pings & Ride Req", category: "client", x: 50, y: 180 },
       { id: "ws_gateway", label: "WebSocket Gateway", sublabel: "Persistent Connections", category: "edge", x: 270, y: 180 },
       { id: "match_svc", label: "Dispatch & Match Svc", sublabel: "Ride Matching Logic", category: "compute", x: 510, y: 180 },
-      { id: "redis_geo", label: "Redis Geo Index", sublabel: "Geohash / H3 Cells", category: "cache", x: 760, y: 180 }
+      { id: "redis_geo", label: "Redis Geo Index", sublabel: "Geohash / H3 Cells", category: "cache", x: 730, y: 180 }
     ],
     starterEdges: [
       { id: "e1", from: "driver_app", to: "ws_gateway", protocol: "WSS / QUIC" },
@@ -209,13 +316,13 @@ export const SYSTEM_DESIGN_PROBLEMS: SystemDesignProblem[] = [
       { id: "e3", from: "match_svc", to: "redis_geo", protocol: "GEORADIUS / H3" }
     ],
     referenceNodes: [
-      { id: "driver_app", label: "Driver & Rider Apps", sublabel: "4s GPS Telemetry", category: "client", x: 40, y: 180 },
-      { id: "ws_gateway", label: "WebSocket / QUIC Edge", sublabel: "Connection Manager", category: "edge", x: 240, y: 180 },
-      { id: "loc_svc", label: "Location Ingestion Svc", sublabel: "High-Write Streamer", category: "compute", x: 460, y: 90 },
-      { id: "match_svc", label: "Dispatch & Matching Svc", sublabel: "ETA & Offer Lock Engine", category: "compute", x: 460, y: 260 },
-      { id: "redis_geo", label: "Redis H3 Spatial Cluster", sublabel: "In-Memory Hexagonal Index", category: "cache", x: 720, y: 90 },
-      { id: "kafka", label: "Kafka Telemetry Stream", sublabel: "ETA ML & Fraud Analytics", category: "queue", x: 720, y: 220 },
-      { id: "trip_db", label: "Sharded Trip DB", sublabel: "PostgreSQL / Schemaless", category: "database", x: 720, y: 340 }
+      { id: "driver_app", label: "Driver & Rider Apps", sublabel: "4s GPS Telemetry", category: "client", x: 35, y: 180 },
+      { id: "ws_gateway", label: "WebSocket / QUIC Edge", sublabel: "Connection Manager", category: "edge", x: 235, y: 180 },
+      { id: "loc_svc", label: "Location Ingestion Svc", sublabel: "High-Write Streamer", category: "compute", x: 455, y: 90 },
+      { id: "match_svc", label: "Dispatch & Matching Svc", sublabel: "ETA & Offer Lock Engine", category: "compute", x: 455, y: 260 },
+      { id: "redis_geo", label: "Redis H3 Spatial Cluster", sublabel: "In-Memory Hexagonal Index", category: "cache", x: 700, y: 90 },
+      { id: "kafka", label: "Kafka Telemetry Stream", sublabel: "ETA ML & Surge Pricing", category: "queue", x: 700, y: 215 },
+      { id: "trip_db", label: "Sharded Trip DB", sublabel: "PostgreSQL / Schemaless", category: "database", x: 700, y: 335 }
     ],
     referenceEdges: [
       { id: "re1", from: "driver_app", to: "ws_gateway", protocol: "WSS / QUIC" },
@@ -242,22 +349,22 @@ export const SYSTEM_DESIGN_PROBLEMS: SystemDesignProblem[] = [
         level: "L4",
         question: "Why can't we simply run `SELECT * FROM drivers WHERE lat BETWEEN x1 AND x2 AND lng BETWEEN y1 AND y2` in PostgreSQL for 500,000 updates/sec?",
         idealTradeoff:
-          "B-Tree indexes on `(lat, lng)` degrade on 2D range queries and incur massive write amplification from 500k disk updates/sec. Instead, store ephemeral driver coordinates in memory (Redis Cluster) partitioned by Geohash or Uber H3 hexagonal cells, turning a 2D spatial lookup into O(1) hash lookups across the target cell and its 6 neighboring k-ring cells.",
-        keywords: ["geohash", "h3", "redis", "in-memory", "write amplification", "2d", "neighbors"]
+          "B-Tree indexes on `(lat, lng)` degrade on 2D range queries and incur massive write amplification from 500k disk updates/sec. Store ephemeral coordinates in memory (Redis Cluster) partitioned by Uber H3 hexagonal cells.",
+        keywords: ["geohash", "h3", "redis", "in-memory", "write amplification"]
       },
       {
         level: "L5",
-        question: "How do you handle a hot spot like Madison Square Garden or LAX airport where 10,000 riders and 2,000 drivers are concentrated inside a single Geohash/H3 cell?",
+        question: "How do you handle a hot spot like LAX airport where 10,000 riders and 2,000 drivers are concentrated inside a single H3 cell?",
         idealTradeoff:
-          "Use adaptive spatial resolution (Quadtree dynamic splitting or fine-grained H3 resolution levels 8–10) combined with consistent hashing with read replicas per hot cell, or batch-matching windows (every 2 seconds solve a bipartite graph matching optimization with Hungarian algorithm rather than greedy FCFS).",
-        keywords: ["quadtree", "resolution", "hot spot", "batch matching", "bipartite", "replica"]
+          "Use finer H3 resolution levels (level 9–10) combined with read replicas per hot cell and 2-second bipartite batch-matching windows (Hungarian algorithm) rather than greedy FCFS.",
+        keywords: ["resolution", "hot spot", "batch matching", "bipartite", "replica"]
       },
       {
         level: "L6",
-        question: "Why is Euclidean distance (straight-line radius) insufficient for dispatch, and how do you architect real-time road-network ETA calculation at scale?",
+        question: "Why is straight-line Euclidean distance insufficient for dispatch, and how do you architect real-time road-network ETA at scale?",
         idealTradeoff:
-          "A driver 200m away across a river or on the wrong side of a highway exit may have a 15-minute ETA. Filter candidates first via H3 k-ring (top 25 drivers), then query a partitioned Contraction Hierarchies / road-graph routing service weighted by live traffic edge speeds computed from the Kafka driver telemetry stream.",
-        keywords: ["road network", "eta", "graph", "dijkstra", "contraction hierarchies", "filter", "traffic"]
+          "Filter top 25 candidates via H3 k-ring first, then query a partitioned Contraction Hierarchies road-graph service weighted by live traffic edge speeds from Kafka.",
+        keywords: ["road network", "eta", "graph", "contraction hierarchies", "traffic"]
       }
     ]
   },
@@ -295,25 +402,19 @@ export const SYSTEM_DESIGN_PROBLEMS: SystemDesignProblem[] = [
         path: "wss://chat.whatsapp.net/v1/stream",
         description: "Multiplexed persistent connection for sending messages, ACKs, and heartbeats",
         payload: "{ type: 'SEND_MSG', clientMsgId, recipientId, ciphertext, timestamp }"
-      },
-      {
-        method: "POST",
-        path: "/api/v1/presence/subscribe",
-        description: "Subscribe to online/last-seen updates for active chat viewport contacts",
-        payload: "{ targetUserIds: ['u_101', 'u_102'] }"
       }
     ],
     coreEntities: [
       {
         table: "SessionRoutingRegistry",
         dbType: "Redis Cluster",
-        schema: "Key: user_session:{userId} -> { chatGatewayHost: 'gw-us-east-42', connId, lastHeartbeat }",
+        schema: "Key: user_session:{userId} -> { chatGatewayHost, connId, lastHeartbeat }",
         partitionKey: "userId"
       },
       {
         table: "OfflineInboxMessages",
         dbType: "Apache Cassandra / DynamoDB",
-        schema: "recipient_id PK, message_id SK (TimeUUID), sender_id, group_id, ciphertext, status",
+        schema: "recipient_id PK, message_id SK (TimeUUID), sender_id, ciphertext, status",
         partitionKey: "recipient_id"
       }
     ],
@@ -329,13 +430,13 @@ export const SYSTEM_DESIGN_PROBLEMS: SystemDesignProblem[] = [
       { id: "e3", from: "chat_gw", to: "msg_db", protocol: "Write/Read" }
     ],
     referenceNodes: [
-      { id: "clients", label: "Mobile / Web Clients", sublabel: "E2EE Signal Keys", category: "client", x: 40, y: 180 },
-      { id: "chat_gw", label: "Stateful Chat Gateways", sublabel: "100k WebSockets / Node", category: "edge", x: 250, y: 180 },
-      { id: "msg_router", label: "Message Routing & Group Fanout", sublabel: "Stateless Workers", category: "compute", x: 480, y: 100 },
-      { id: "presence_svc", label: "Presence & Heartbeat Svc", sublabel: "Pub/Sub Status", category: "compute", x: 480, y: 260 },
-      { id: "session_redis", label: "Redis Session & Presence", sublabel: "Gateway Routing Table", category: "cache", x: 730, y: 80 },
-      { id: "msg_db", label: "Cassandra Inbox Store", sublabel: "Wide-Column TimeUUID", category: "database", x: 730, y: 210 },
-      { id: "push_notify", label: "APNs / FCM Push Queue", sublabel: "Offline Wakeup", category: "queue", x: 730, y: 340 }
+      { id: "clients", label: "Mobile / Web Clients", sublabel: "E2EE Signal Keys", category: "client", x: 35, y: 180 },
+      { id: "chat_gw", label: "Stateful Chat Gateways", sublabel: "100k WebSockets / Node", category: "edge", x: 245, y: 180 },
+      { id: "msg_router", label: "Message Routing & Fanout", sublabel: "Stateless Workers", category: "compute", x: 470, y: 100 },
+      { id: "presence_svc", label: "Presence & Heartbeat Svc", sublabel: "Pub/Sub Status", category: "compute", x: 470, y: 260 },
+      { id: "session_redis", label: "Redis Session & Presence", sublabel: "Gateway Routing Table", category: "cache", x: 700, y: 80 },
+      { id: "msg_db", label: "Cassandra Inbox Store", sublabel: "Wide-Column TimeUUID", category: "database", x: 700, y: 210 },
+      { id: "push_notify", label: "APNs / FCM Push Queue", sublabel: "Offline Wakeup", category: "queue", x: 700, y: 335 }
     ],
     referenceEdges: [
       { id: "re1", from: "clients", to: "chat_gw", protocol: "WSS" },
@@ -360,24 +461,24 @@ export const SYSTEM_DESIGN_PROBLEMS: SystemDesignProblem[] = [
     deepDiveQuestions: [
       {
         level: "L4",
-        question: "When User A sends a message to User B, how does the backend know which specific WebSocket server out of 2,000 gateway servers holds User B's active TCP connection?",
+        question: "How does the backend know which specific WebSocket server out of 2,000 gateway servers holds User B's active TCP connection?",
         idealTradeoff:
-          "Maintain a Session Routing Registry in Redis (`user_session:{userB} -> gateway_node_id`). When User A's gateway receives the message, the routing worker looks up User B's gateway host in Redis and forwards the message via internal gRPC directly to that gateway node. If no active session exists, it writes to the Cassandra offline inbox and triggers APNs/FCM push.",
-        keywords: ["session", "redis", "gateway", "routing", "offline", "push"]
+          "Maintain a Session Routing Registry in Redis (`user_session:{userB} -> gateway_node_id`). Look up User B's gateway host in Redis and forward via internal gRPC.",
+        keywords: ["session", "redis", "gateway", "routing"]
       },
       {
         level: "L5",
-        question: "Why does broadcasting 'User X is now online' to all 500 of User X's address book contacts cause a massive fanout storm, and how do you avoid it?",
+        question: "Why does broadcasting 'User X is online' to all 500 address book contacts cause a fanout storm, and how do you avoid it?",
         idealTradeoff:
-          "Use Pull/Explicit Subscription on active viewport rather than blind address-book push fanout. A client only subscribes to presence updates for the 1 person (or active chat screen) they are currently viewing, combined with a 30-second heartbeat TTL in Redis.",
-        keywords: ["presence", "fanout", "subscription", "heartbeat", "ttl", "viewport"]
+          "Use explicit viewport subscription rather than blind address-book push fanout: clients only subscribe to presence for the active chat screen they are viewing.",
+        keywords: ["presence", "fanout", "subscription", "heartbeat", "ttl"]
       },
       {
         level: "L6",
-        question: "How do you guarantee reliable message ordering and zero lost messages if a user switches from Wi-Fi to 5G mid-flight while a group message fanout is occurring?",
+        question: "How do you guarantee reliable ordering and zero lost messages if a user switches from Wi-Fi to 5G mid-flight?",
         idealTradeoff:
-          "Persist every incoming message to the recipient's Cassandra inbox table (keyed by `recipient_id` + monotonic `TimeUUID` / Snowflake ID) *before* attempting WebSocket push, and only delete/mark delivered upon receiving an explicit application-layer `CLIENT_ACK` packet from the recipient device.",
-        keywords: ["ack", "inbox", "timeuuid", "snowflake", "idempotency", "ordering", "at-least-once"]
+          "Persist incoming messages to the recipient's Cassandra inbox table keyed by `recipient_id` + monotonic `TimeUUID` before attempting WebSocket push, deleting only after an application-layer `CLIENT_ACK`.",
+        keywords: ["ack", "inbox", "timeuuid", "idempotency", "ordering"]
       }
     ]
   },
@@ -415,33 +516,27 @@ export const SYSTEM_DESIGN_PROBLEMS: SystemDesignProblem[] = [
         path: "/api/v1/rag/query (SSE Stream)",
         description: "Execute permission-aware hybrid retrieval, reranking, and LLM streaming answer with citations",
         payload: "{ tenantId, userId, query, conversationHistory[] } -> SSE stream of { token, citations[] }"
-      },
-      {
-        method: "POST",
-        path: "/api/v1/ingest/webhook",
-        description: "Ingest updated document content or ACL permission delta from connectors",
-        payload: "{ source: 'gdrive', docId, aclPrincipals: ['group:eng'], contentHash }"
       }
     ],
     coreEntities: [
       {
         table: "DocumentChunksIndex",
         dbType: "Qdrant / Milvus / Elasticsearch Hybrid",
-        schema: "chunk_id PK, tenant_id, doc_id, embedding vector[1024], bm25_tokens, acl_groups[], updated_at",
+        schema: "chunk_id PK, tenant_id, doc_id, embedding vector[1024], bm25_tokens, acl_groups[]",
         partitionKey: "tenant_id"
       },
       {
         table: "UserPrincipalGraph",
         dbType: "Redis + Zanzibar / SpiceDB ACL Cache",
-        schema: "Key: acl:{tenantId}:{userId} -> Set of allowed group_ids & role_tokens",
+        schema: "Key: acl:{tenantId}:{userId} -> Set of allowed group_ids",
         partitionKey: "tenant_id:user_id"
       }
     ],
     starterNodes: [
       { id: "user_ui", label: "Enterprise Chat UI", sublabel: "SSE Streaming Client", category: "client", x: 40, y: 180 },
       { id: "rag_orch", label: "RAG Orchestrator", sublabel: "Query Rewrite & Prompting", category: "compute", x: 260, y: 180 },
-      { id: "vector_db", label: "Vector & Lexical Index", sublabel: "HNSW + BM25 Hybrid", category: "search_ai", x: 520, y: 110 },
-      { id: "llm_gw", label: "LLM Inference Gateway", sublabel: "vLLM / Enterprise Model", category: "search_ai", x: 520, y: 260 }
+      { id: "vector_db", label: "Vector & Lexical Index", sublabel: "HNSW + BM25 Hybrid", category: "search_ai", x: 510, y: 110 },
+      { id: "llm_gw", label: "LLM Inference Gateway", sublabel: "vLLM / Enterprise Model", category: "search_ai", x: 510, y: 260 }
     ],
     starterEdges: [
       { id: "e1", from: "user_ui", to: "rag_orch", protocol: "SSE / HTTPS" },
@@ -449,13 +544,13 @@ export const SYSTEM_DESIGN_PROBLEMS: SystemDesignProblem[] = [
       { id: "e3", from: "rag_orch", to: "llm_gw", protocol: "Stream Prompt" }
     ],
     referenceNodes: [
-      { id: "user_ui", label: "Enterprise Chat Client", sublabel: "Citations & Feedback", category: "client", x: 35, y: 180 },
-      { id: "rag_orch", label: "RAG Query Orchestrator", sublabel: "ACL Pre-Filter & RRF", category: "compute", x: 245, y: 110 },
-      { id: "ingest_pipe", label: "Ingestion & Chunking Worker", sublabel: "Kafka + Semantic Chunker", category: "queue", x: 245, y: 290 },
-      { id: "acl_cache", label: "Zanzibar / Redis ACL Graph", sublabel: "User Group Membership", category: "cache", x: 485, y: 60 },
-      { id: "vector_db", label: "Hybrid Vector + BM25 DB", sublabel: "Tenant-Sharded HNSW", category: "search_ai", x: 485, y: 185 },
-      { id: "reranker", label: "Cross-Encoder Reranker", sublabel: "Top 100 -> Top 8 Chunks", category: "search_ai", x: 725, y: 100 },
-      { id: "llm_gw", label: "LLM Serving & Guardrails", sublabel: "Citation Grounding Check", category: "search_ai", x: 725, y: 260 }
+      { id: "user_ui", label: "Enterprise Chat Client", sublabel: "Citations & Feedback", category: "client", x: 30, y: 180 },
+      { id: "rag_orch", label: "RAG Query Orchestrator", sublabel: "ACL Pre-Filter & RRF", category: "compute", x: 235, y: 110 },
+      { id: "ingest_pipe", label: "Ingestion & Chunking Worker", sublabel: "Kafka + Semantic Chunker", category: "queue", x: 235, y: 290 },
+      { id: "acl_cache", label: "Zanzibar / Redis ACL Graph", sublabel: "User Group Membership", category: "cache", x: 470, y: 60 },
+      { id: "vector_db", label: "Hybrid Vector + BM25 DB", sublabel: "Tenant-Sharded HNSW", category: "search_ai", x: 470, y: 185 },
+      { id: "reranker", label: "Cross-Encoder Reranker", sublabel: "Top 100 -> Top 8 Chunks", category: "search_ai", x: 700, y: 100 },
+      { id: "llm_gw", label: "LLM Serving & Guardrails", sublabel: "Citation Grounding Check", category: "search_ai", x: 700, y: 260 }
     ],
     referenceEdges: [
       { id: "re1", from: "user_ui", to: "rag_orch", protocol: "SSE" },
@@ -481,22 +576,238 @@ export const SYSTEM_DESIGN_PROBLEMS: SystemDesignProblem[] = [
         level: "L4",
         question: "Why is pure dense vector search insufficient for enterprise search, and how do you combine it with keyword search?",
         idealTradeoff:
-          "Dense embeddings struggle with exact part numbers, error codes (`ERR_4092`), project acronyms, and proper nouns. Use Hybrid Retrieval: execute lexical BM25 search and dense HNSW vector search in parallel, fuse the top 100 candidates via Reciprocal Rank Fusion (RRF), and pass them to a Cross-Encoder Reranker to select the final top 8 chunks.",
-        keywords: ["bm25", "hybrid", "rrf", "reciprocal rank fusion", "reranker", "cross-encoder", "exact match"]
+          "Use Hybrid Retrieval: execute lexical BM25 and dense HNSW vector search in parallel, fuse top 100 via Reciprocal Rank Fusion (RRF), and pass to a Cross-Encoder Reranker.",
+        keywords: ["bm25", "hybrid", "rrf", "reranker", "cross-encoder"]
       },
       {
         level: "L5",
-        question: "How do you enforce document-level ACL permissions without re-embedding all chunks of a 200-page document whenever a user is added to an engineering Google Group?",
+        question: "How do you enforce document-level ACL permissions without re-embedding all chunks when a user joins a Google Group?",
         idealTradeoff:
-          "Decouple Group-to-Document ACLs from User-to-Group membership! Store `allowed_group_ids` as filterable metadata on document chunks, and store User -> Group mappings in a fast Redis/Zanzibar cache. At query time, look up the user's groups (`['eng-all', 'team-payments']`) and pass them as a pre-filter bitmap into the HNSW vector index search.",
-        keywords: ["acl", "group", "pre-filter", "metadata", "decouple", "zanzibar", "redis"]
+          "Decouple Group-to-Document ACLs from User-to-Group membership! Store `allowed_group_ids` on document chunks and User -> Group mappings in Redis/Zanzibar, passing the user's groups as a pre-filter bitmap into HNSW search.",
+        keywords: ["acl", "group", "pre-filter", "metadata", "decouple", "zanzibar"]
       },
       {
         level: "L6",
-        question: "5 Billion 1024-dim float32 vectors require ~20 TB of RAM for HNSW indexes. How do you reduce memory costs by 8x–16x without destroying recall?",
+        question: "5 Billion 1024-dim float32 vectors require ~20 TB of RAM. How do you reduce memory costs by 8x–16x without destroying recall?",
         idealTradeoff:
-          "Apply Scalar Quantization (SQ8 / int8) or Binary/Product Quantization (PQ) with Matryoshka Representation Learning (MRL) in memory for fast candidate recall (fetching top 200), then rescore those 200 candidates using full-precision fp16 vectors stored on NVMe SSD (DiskANN pattern).",
-        keywords: ["quantization", "int8", "pq", "diskann", "matryoshka", "rescore", "nvme"]
+          "Apply Scalar Quantization (int8) or Binary/Product Quantization (PQ) in RAM for candidate recall (top 200), then rescore those 200 using full-precision fp16 vectors on NVMe SSD (DiskANN pattern).",
+        keywords: ["quantization", "int8", "pq", "diskann", "rescore", "nvme"]
+      }
+    ]
+  },
+  {
+    id: "dropbox_sync",
+    title: "Design Dropbox / Google Drive (Block-Level Cloud File Sync)",
+    companyTags: ["Dropbox", "Google", "Apple", "Microsoft", "Box"],
+    difficulty: "Hard",
+    category: "Distributed Systems",
+    estimatedMinutes: 45,
+    promptSummary:
+      "Design a cloud file storage and multi-device synchronization service supporting 50GB+ files, resumable uploads, delta sync (only uploading modified 4MB blocks), deduplication, and instant multi-device change notifications.",
+    functionalRequirements: [
+      "Users can upload, download, and share files/folders up to 50GB across desktop & mobile clients",
+      "Delta Sync & Resumable Uploads: modifying a 10GB file only uploads the changed 4MB block chunks",
+      "Content-addressable deduplication via SHA-256 block hashes",
+      "Real-time file version history and multi-device sync notifications"
+    ],
+    nonFunctionalRequirements: [
+      "Strict ACID metadata consistency (folder hierarchy, file versions, permissions)",
+      "99.999999999% (11 nines) blob durability across multi-region Object Storage (S3)",
+      "Aggressive bandwidth & storage savings via client-side chunking, SHA-256 dedup, and zstd compression"
+    ],
+    capacityDefaults: {
+      dau: "100M DAU across 300M connected devices",
+      readQps: "120,000 metadata/sync queries/sec",
+      writeQps: "40,000 block chunk commits/sec",
+      storagePerYear: "500 PB Object Storage (after ~35% SHA-256 deduplication savings)",
+      bandwidth: "15 GB/s direct Client <-> S3 Pre-Signed URL throughput"
+    },
+    apiEndpoints: [
+      {
+        method: "POST",
+        path: "/api/v1/files/init-upload",
+        description: "Send array of 4MB block SHA-256 hashes; returns pre-signed S3 URLs ONLY for blocks not already in cloud",
+        payload: "{ fileId, version, blockHashes: ['sha256_1', 'sha256_2'] } -> { missingHashes: ['sha256_2'], presignedUrls }"
+      }
+    ],
+    coreEntities: [
+      {
+        table: "FileMetadata & Versions",
+        dbType: "Sharded PostgreSQL / Spanner",
+        schema: "file_id PK, workspace_id, latest_version INT, block_list_ids[], updated_at",
+        partitionKey: "workspace_id"
+      },
+      {
+        table: "ContentAddressableBlocks",
+        dbType: "S3 Object Storage + Block Index DB",
+        schema: "block_sha256 PK, s3_object_uri, byte_size, ref_count",
+        partitionKey: "block_sha256"
+      }
+    ],
+    starterNodes: [
+      { id: "sync_client", label: "Desktop Sync Client", sublabel: "4MB Chunker & Watcher", category: "client", x: 40, y: 180 },
+      { id: "meta_svc", label: "Metadata & Dedup Svc", sublabel: "Hash Check & Pre-Signed URL", category: "compute", x: 290, y: 180 },
+      { id: "s3_blob", label: "S3 Block Storage", sublabel: "Direct Client Upload", category: "database", x: 580, y: 100 },
+      { id: "meta_db", label: "PostgreSQL Metadata DB", sublabel: "ACID File Revisions", category: "database", x: 580, y: 260 }
+    ],
+    starterEdges: [
+      { id: "e1", from: "sync_client", to: "meta_svc", protocol: "HTTPS" },
+      { id: "e2", from: "sync_client", to: "s3_blob", protocol: "Pre-Signed PUT" },
+      { id: "e3", from: "meta_svc", to: "meta_db", protocol: "ACID SQL" }
+    ],
+    referenceNodes: [
+      { id: "sync_client", label: "Desktop/Mobile Client", sublabel: "Rabin Fingerprint 4MB Chunker", category: "client", x: 35, y: 180 },
+      { id: "api_gw", label: "API Gateway", sublabel: "Auth & Rate Limit", category: "edge", x: 235, y: 180 },
+      { id: "meta_svc", label: "Metadata & Dedup Svc", sublabel: "SHA-256 Check & Presign", category: "compute", x: 455, y: 95 },
+      { id: "notify_svc", label: "SSE / Long-Poll Sync Svc", sublabel: "Device Delta Push", category: "compute", x: 455, y: 270 },
+      { id: "s3_blob", label: "S3 Content-Addressed Store", sublabel: "Direct Pre-Signed Upload", category: "database", x: 700, y: 75 },
+      { id: "meta_db", label: "Sharded Metadata DB", sublabel: "PostgreSQL ACID Versions", category: "database", x: 700, y: 205 },
+      { id: "redis_pub", label: "Redis Pub/Sub Registry", sublabel: "Workspace Device Channels", category: "cache", x: 700, y: 330 }
+    ],
+    referenceEdges: [
+      { id: "re1", from: "sync_client", to: "api_gw", protocol: "HTTPS / SSE" },
+      { id: "re2", from: "api_gw", to: "meta_svc", protocol: "gRPC" },
+      { id: "re3", from: "sync_client", to: "s3_blob", protocol: "Direct PUT/GET" },
+      { id: "re4", from: "meta_svc", to: "meta_db", protocol: "ACID Commit" },
+      { id: "re5", from: "meta_svc", to: "redis_pub", protocol: "Publish Revision" },
+      { id: "re6", from: "redis_pub", to: "notify_svc", protocol: "Fanout Delta" }
+    ],
+    requiredArchitectureKeywords: [
+      "chunk",
+      "4mb",
+      "sha-256",
+      "deduplication",
+      "pre-signed",
+      "s3",
+      "metadata",
+      "acid",
+      "delta"
+    ],
+    deepDiveQuestions: [
+      {
+        level: "L4",
+        question: "Why should file bytes NEVER flow through your backend API servers during upload/download?",
+        idealTradeoff:
+          "Proxying 50GB file uploads through stateless API servers saturates NIC bandwidth and ties up worker threads. Instead, the Metadata Service checks block SHA-256 hashes and returns S3 Pre-Signed URLs so the client uploads/downloads 4MB blocks directly to/from S3.",
+        keywords: ["pre-signed", "s3", "direct", "bandwidth", "metadata"]
+      },
+      {
+        level: "L5",
+        question: "How does Content-Addressable Storage enable cross-user deduplication and instant delta sync?",
+        idealTradeoff:
+          "Splitting files into 4MB blocks (via Content-Defined Chunking / Rabin Fingerprinting) and indexing each block by its `SHA-256` hash means only modified blocks are uploaded on edit, and identical blocks already in S3 are skipped during `init-upload`.",
+        keywords: ["sha-256", "chunk", "rabin", "deduplication", "delta"]
+      },
+      {
+        level: "L6",
+        question: "How do you handle concurrent edits when two offline devices modify the same file and reconnect?",
+        idealTradeoff:
+          "Use optimistic concurrency on file `version` in PostgreSQL (`UPDATE files SET version=version+1 WHERE file_id=$1 AND version=$2`). The first device to reconnect commits `v2`; the second device's base version `v1` fails the check and saves its blocks as a non-destructive conflicted copy so zero user work is lost.",
+        keywords: ["optimistic", "version", "conflict", "acid"]
+      }
+    ]
+  },
+  {
+    id: "leetcode_judge",
+    title: "Design LeetCode (Sandboxed Online Code Execution Judge)",
+    companyTags: ["Meta", "Amazon", "OpenAI", "Anthropic", "Databricks"],
+    difficulty: "Hard",
+    category: "Core Infrastructure",
+    estimatedMinutes: 45,
+    promptSummary:
+      "Design an online coding platform and remote code execution engine that safely compiles and runs untrusted user code across 15+ languages against test suites during live weekly contests with 100,000+ participants.",
+    functionalRequirements: [
+      "Users can view problems, submit code in 15+ languages, and receive pass/fail + runtime/memory percentiles",
+      "Strict security isolation so malicious code (fork bombs, infinite loops, filesystem/network exploits) cannot escape",
+      "Live Weekly Contest Leaderboard ranking 100,000+ contestants in real time by score and penalty time"
+    ],
+    nonFunctionalRequirements: [
+      "Strict container/microVM isolation (no outbound network, read-only rootfs, cgroups CPU/RAM caps, seccomp syscall filters)",
+      "Queue-to-result p95 turnaround < 2.5 seconds even during contest submission spikes (20,000 submissions/min)",
+      "Real-time leaderboard queries in O(log N) using Redis Sorted Sets"
+    ],
+    capacityDefaults: {
+      dau: "1.5M DAU (100k concurrent during Saturday contest)",
+      readQps: "60,000 problem & leaderboard reads/sec",
+      writeQps: "1,500 code execution submissions/sec at peak",
+      storagePerYear: "10 TB submission code & test case artifacts",
+      bandwidth: "300 MB/s test case & stdout payloads"
+    },
+    apiEndpoints: [
+      {
+        method: "POST",
+        path: "/api/v1/submissions",
+        description: "Enqueue untrusted code submission and return submissionId for SSE/polling",
+        payload: "{ problemId, language: 'cpp', sourceCode } -> { submissionId, status: 'QUEUED' }"
+      }
+    ],
+    coreEntities: [
+      {
+        table: "ContestLeaderboard",
+        dbType: "Redis Sorted Set (ZSET)",
+        schema: "Key: contest:{id}:leaderboard -> Member: user_id, Score: composite(points, -penalty_seconds)",
+        partitionKey: "contest_id"
+      }
+    ],
+    starterNodes: [
+      { id: "coder_ui", label: "Web IDE Client", sublabel: "Monaco Editor + SSE", category: "client", x: 40, y: 180 },
+      { id: "api_svc", label: "Submission API", sublabel: "Auth & Rate Limit", category: "compute", x: 265, y: 180 },
+      { id: "job_queue", label: "Kafka / SQS Job Queue", sublabel: "Buffer Contest Spikes", category: "queue", x: 500, y: 180 },
+      { id: "sandbox_fleet", label: "Firecracker / gVisor Workers", sublabel: "Isolated Code Runners", category: "compute", x: 720, y: 180 }
+    ],
+    starterEdges: [
+      { id: "e1", from: "coder_ui", to: "api_svc", protocol: "HTTPS / SSE" },
+      { id: "e2", from: "api_svc", to: "job_queue", protocol: "Enqueue Job" },
+      { id: "e3", from: "job_queue", to: "sandbox_fleet", protocol: "Pull & Run" }
+    ],
+    referenceNodes: [
+      { id: "coder_ui", label: "Web IDE Client", sublabel: "Monaco + SSE Status", category: "client", x: 35, y: 180 },
+      { id: "api_gw", label: "API Gateway", sublabel: "Submission Rate Limit", category: "edge", x: 230, y: 180 },
+      { id: "sub_svc", label: "Submission & Contest Svc", sublabel: "State & Scoring", category: "compute", x: 445, y: 100 },
+      { id: "job_queue", label: "Language-Sharded Queue", sublabel: "Kafka / RabbitMQ", category: "queue", x: 445, y: 265 },
+      { id: "sandbox_fleet", label: "Firecracker MicroVM Fleet", sublabel: "cgroups + seccomp + No Net", category: "compute", x: 700, y: 265 },
+      { id: "redis_zset", label: "Redis ZSET Leaderboard", sublabel: "O(log N) Rank Updates", category: "cache", x: 700, y: 80 }
+    ],
+    referenceEdges: [
+      { id: "re1", from: "coder_ui", to: "api_gw", protocol: "HTTPS / SSE" },
+      { id: "re2", from: "api_gw", to: "sub_svc", protocol: "gRPC" },
+      { id: "re3", from: "sub_svc", to: "job_queue", protocol: "Enqueue" },
+      { id: "re4", from: "job_queue", to: "sandbox_fleet", protocol: "Worker Pull" },
+      { id: "re5", from: "sandbox_fleet", to: "sub_svc", protocol: "Verdict Callback" },
+      { id: "re6", from: "sub_svc", to: "redis_zset", protocol: "ZADD Score" }
+    ],
+    requiredArchitectureKeywords: [
+      "sandbox",
+      "firecracker",
+      "gvisor",
+      "seccomp",
+      "cgroups",
+      "queue",
+      "sorted set",
+      "zset",
+      "isolation"
+    ],
+    deepDiveQuestions: [
+      {
+        level: "L4",
+        question: "How do you prevent a user from submitting `while(true) fork();` or reading `/etc/passwd` on your execution server?",
+        idealTradeoff:
+          "Run every submission inside an ephemeral Firecracker microVM or gVisor sandbox with Linux `cgroups` (strict PID count limit `pids.max=32`, memory limit `256MB`, CPU quota), `seccomp-bpf` syscall whitelist, read-only rootfs, and zero network interfaces.",
+        keywords: ["cgroups", "seccomp", "firecracker", "gvisor", "pids", "network"]
+      },
+      {
+        level: "L5",
+        question: "How do you rank 100,000 contest participants in real time where ties in points are broken by earliest penalty time?",
+        idealTradeoff:
+          "Use a Redis Sorted Set (`ZSET`) where the 64-bit float score encodes both `points` in the high bits and `(MAX_TIME - penalty_seconds)` in the lower bits, giving O(log N) `ZADD` updates and O(log N) `ZREVRANK` rank lookups.",
+        keywords: ["redis", "sorted set", "zset", "zadd", "composite score"]
+      },
+      {
+        level: "L6",
+        question: "How do you avoid cold-start container boot overhead (500ms+) on every single 10ms Python/C++ test run?",
+        idealTradeoff:
+          "Maintain pre-warmed language-specific microVM pools with mounted read-only compiler toolchains and cached test-case volumes on local NVMe tmpfs, snapshotting and resetting VM memory in <5ms between runs.",
+        keywords: ["pre-warm", "snapshot", "tmpfs", "nvme", "cold-start"]
       }
     ]
   }

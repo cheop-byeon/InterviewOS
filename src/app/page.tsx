@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
   Briefcase,
   Building2,
   CheckCircle2,
+  Database,
   FileSearch,
   Layers,
   MessageSquareCode,
@@ -27,8 +28,10 @@ import { SYSTEM_DESIGN_PROBLEMS } from "../lib/data/systemDesignProblems";
 import { analyzeResumeAgainstJD } from "../lib/engines/atsEngine";
 import {
   ActiveTab,
+  DatabaseTelemetry,
   LLMConfig,
   PracticeSessionRecord,
+  ResumeScanRecord,
   TargetLevel
 } from "../lib/types";
 
@@ -54,9 +57,31 @@ export default function HomePage() {
   const [sessionHistory, setSessionHistory] = useState<PracticeSessionRecord[]>(
     INITIAL_SESSION_HISTORY
   );
+  const [resumeScans, setResumeScans] = useState<ResumeScanRecord[]>([]);
+  const [dbTelemetry, setDbTelemetry] = useState<DatabaseTelemetry | null>(null);
 
-  // Hydrate persisted state from localStorage on mount
+  const refreshDatabaseState = useCallback(() => {
+    fetch("/api/db")
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data.sessionHistory) && data.sessionHistory.length > 0) {
+          setSessionHistory(data.sessionHistory);
+        }
+        if (Array.isArray(data.resumeScans)) {
+          setResumeScans(data.resumeScans);
+        }
+        if (data.telemetry) {
+          setDbTelemetry(data.telemetry);
+        }
+      })
+      .catch(() => {
+        // Fallback to localStorage if offline
+      });
+  }, []);
+
+  // Hydrate persisted state from SQLite + localStorage on mount
   useEffect(() => {
+    refreshDatabaseState();
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
       if (raw) {
@@ -64,14 +89,11 @@ export default function HomePage() {
         if (parsed.resumeText) setResumeText(parsed.resumeText);
         if (parsed.jdText) setJdText(parsed.jdText);
         if (parsed.targetLevel) setTargetLevel(parsed.targetLevel);
-        if (Array.isArray(parsed.sessionHistory)) {
-          setSessionHistory(parsed.sessionHistory);
-        }
       }
     } catch {
       // Ignore storage errors
     }
-  }, []);
+  }, [refreshDatabaseState]);
 
   // Persist changes automatically
   useEffect(() => {
@@ -96,15 +118,14 @@ export default function HomePage() {
   );
 
   const handleRecordSession = (rec: PracticeSessionRecord) => {
-    setSessionHistory((prev) => {
-      const next = [rec, ...prev.slice(0, 7)];
-      fetch("/api/db", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionHistory: next })
-      }).catch(() => {});
-      return next;
-    });
+    setSessionHistory((prev) => [rec, ...prev.slice(0, 14)]);
+    fetch("/api/db", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "record_session", session: rec })
+    })
+      .then(() => refreshDatabaseState())
+      .catch(() => {});
   };
 
   const handleNavigateToModule = (tab: ActiveTab, topicId?: string) => {
@@ -135,6 +156,9 @@ export default function HomePage() {
         llmConfig={llmConfig}
         setLlmConfig={setLlmConfig}
         atsScore={liveAtsScan.overallScore}
+        telemetry={dbTelemetry}
+        resumeScans={resumeScans}
+        onRefreshDatabase={refreshDatabaseState}
       />
 
       <main className="flex-1 overflow-y-auto px-5 sm:px-8 py-8">
@@ -327,10 +351,16 @@ export default function HomePage() {
             <div className="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-5">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                  Recent Practice Sessions (Auto-Saved)
+                  Recent Practice Sessions (SQLite Persisted)
                 </h3>
-                <span className="text-[11px] text-slate-500">
-                  Persisted in LocalStorage
+                <span className="inline-flex items-center gap-1.5 text-[11px] text-cyan-400 font-medium">
+                  <Database className="w-3 h-3" />
+                  <span>
+                    SQLite 3 (WAL) •{" "}
+                    {dbTelemetry
+                      ? `${Object.values(dbTelemetry.tableCounts).reduce((a, b) => a + b, 0)} rows across 8 tables`
+                      : "data/interview_os.sqlite"}
+                  </span>
                 </span>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -367,6 +397,7 @@ export default function HomePage() {
             jdText={jdText}
             setJdText={setJdText}
             onNavigateToModule={handleNavigateToModule}
+            onScanRecorded={refreshDatabaseState}
           />
         )}
 
@@ -394,13 +425,17 @@ export default function HomePage() {
         {activeTab === "visual_library" && <VisualLibrary />}
 
         {activeTab === "question_bank" && (
-          <QuestionBank onNavigateToModule={handleNavigateToModule} />
+          <QuestionBank
+            onNavigateToModule={handleNavigateToModule}
+            onDatabaseMutated={refreshDatabaseState}
+          />
         )}
 
         {activeTab === "job_crm" && (
           <JobTrackerCrm
             onNavigateToModule={handleNavigateToModule}
             resumeText={resumeText}
+            onDatabaseMutated={refreshDatabaseState}
           />
         )}
       </main>

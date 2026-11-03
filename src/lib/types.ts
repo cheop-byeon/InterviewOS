@@ -280,6 +280,7 @@ export interface CompanyQuestionItem {
   keyRubricSignal: string;
   linkedModule: ActiveTab;
   linkedTopicId: string;
+  upvotes?: number;
 }
 
 // ==========================================
@@ -323,4 +324,49 @@ export interface PracticeSessionRecord {
   level: TargetLevel;
   scorePct: number;
   verdict: string;
+}
+
+export interface ResumeScanRecord {
+  id: string;
+  roleTitle: string;
+  targetLevel: TargetLevel;
+  overallScore: number;
+  keywordMatchScore: number;
+  impactMetricScore: number;
+  formattingScore: number;
+  matchedCount: number;
+  missingCount: number;
+  createdAt: string;
+}
+
+export interface UserProfileRecord {
+  id: string;
+  name: string;
+  email: string;
+  targetRole: string;
+  targetLevel: TargetLevel;
+  streakDays: number;
+}
+
+export interface DatabaseTelemetry {
+  engine: string;
+  dbPath: string;
+  journalMode: string;
+  fileSizeBytes: number;
+  tableCounts: {
+    users: number;
+    system_design_problems: number;
+    coding_problems: number;
+    question_bank: number;
+    job_applications: number;
+    star_stories: number;
+    practice_sessions: number;
+    resume_scans: number;
+  };
+  aggregates: {
+    avgAtsScore: number;
+    avgPracticeScore: number;
+    totalUpvotes: number;
+    activePipelineCount: number;
+  };
 }

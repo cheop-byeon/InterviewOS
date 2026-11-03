@@ -106,7 +106,6 @@ export const CODING_PROBLEMS: CodingProblem[] = [
   get(key) {
     if (!this.map.has(key)) return -1;
     const val = this.map.get(key);
-    // Refresh recency order in O(1)
     this.map.delete(key);
     this.map.set(key, val);
     return val;
@@ -147,8 +146,7 @@ class LRUCache:
     spaceComplexity: "O(capacity) to store at most C nodes",
     keyInsights: [
       "A standard HashMap gives O(1) lookup but doesn't track recency order on its own without a linked list.",
-      "A Doubly Linked List lets you remove any node in O(1) *if* you already have its pointer via the HashMap.",
-      "Using dummy sentinel `head` and `tail` nodes eliminates null-pointer edge cases."
+      "A Doubly Linked List lets you remove any node in O(1) *if* you already have its pointer via the HashMap."
     ],
     testCases: [
       {
@@ -321,8 +319,8 @@ def can_finish_tasks(num_tasks: int, prereqs: list) -> bool:
     timeComplexity: "O(V + E) where V is tasks and E is dependencies",
     spaceComplexity: "O(V + E) for adjacency list and indegree array",
     keyInsights: [
-      "Kahn's BFS naturally identifies all tasks that can run in parallel at each wave (level-order).",
-      "If `visited < numTasks`, a directed cycle (deadlock) exists among the remaining nodes with `indegree > 0`."
+      "Kahn's BFS naturally identifies all tasks that can run in parallel at each wave.",
+      "If `visited < numTasks`, a directed cycle (deadlock) exists."
     ],
     testCases: [
       {
@@ -338,6 +336,141 @@ def can_finish_tasks(num_tasks: int, prereqs: list) -> bool:
         runnerCodePy: `can_finish_tasks(2, [[1,0],[0,1]])`
       }
     ]
+  },
+  {
+    id: "merge_intervals",
+    title: "Merge Overlapping Calendar / GPU Reservation Intervals",
+    pattern: "Intervals / Sorting by Start Time",
+    difficulty: "Medium",
+    companies: ["Meta", "Google", "OpenAI", "Uber", "Airbnb"],
+    prompt:
+      "Given an array of `intervals` where `intervals[i] = [start_i, end_i]`, merge all overlapping intervals and return an array of the non-overlapping intervals that cover all the intervals in the input.",
+    examples: [
+      {
+        input: "[[1,3],[2,6],[8,10],[15,18]]",
+        output: "[[1,6],[8,10],[15,18]]",
+        explanation: "Intervals [1,3] and [2,6] overlap and merge into [1,6]."
+      }
+    ],
+    starterCode: `function mergeIntervals(intervals) {
+  if (!intervals.length) return [];
+  intervals.sort((a, b) => a[0] - b[0]);
+  const res = [intervals[0]];
+
+  for (let i = 1; i < intervals.length; i++) {
+    const [curStart, curEnd] = intervals[i];
+    const last = res[res.length - 1];
+    if (curStart <= last[1]) {
+      last[1] = Math.max(last[1], curEnd);
+    } else {
+      res.push([curStart, curEnd]);
+    }
+  }
+  return res;
+}`,
+    starterCodePy: `def merge_intervals(intervals: list) -> list:
+    if not intervals:
+        return []
+    intervals.sort(key=lambda x: x[0])
+    res = [intervals[0]]
+    for start, end in intervals[1:]:
+        if start <= res[-1][1]:
+            res[-1][1] = max(res[-1][1], end)
+        else:
+            res.append([start, end])
+    return res
+`,
+    optimalSolution: `// Sort by start time in O(N log N), then merge greedily in a single O(N) pass.`,
+    timeComplexity: "O(N log N) dominated by sorting",
+    spaceComplexity: "O(N) for output list",
+    keyInsights: [
+      "Sorting by `start` guarantees that mergeable intervals appear contiguously.",
+      "Follow-up in interviews: What if intervals arrive as a dynamic stream? Use a balanced Interval Tree / TreeMap."
+    ],
+    testCases: [
+      {
+        input: "[[1,3],[2,6],[8,10],[15,18]]",
+        expected: "[[1,6],[8,10],[15,18]]",
+        runnerCodeJs: `return mergeIntervals([[1,3],[2,6],[8,10],[15,18]]);`,
+        runnerCodePy: `merge_intervals([[1,3],[2,6],[8,10],[15,18]])`
+      },
+      {
+        input: "[[1,4],[4,5]]",
+        expected: "[[1,5]]",
+        runnerCodeJs: `return mergeIntervals([[1,4],[4,5]]);`,
+        runnerCodePy: `merge_intervals([[1,4],[4,5]])`
+      }
+    ]
+  },
+  {
+    id: "top_k_frequent",
+    title: "Top-K Heavy Hitters / Frequent Elements in O(N)",
+    pattern: "Bucket Sort / Min-Heap / Count-Min Sketch",
+    difficulty: "Medium",
+    companies: ["Amazon", "Meta", "Datadog", "Cloudflare", "Stripe"],
+    prompt:
+      "Given an integer array `nums` and an integer `k`, return the `k` most frequent elements in O(N) linear time using Bucket Sort.",
+    examples: [
+      {
+        input: "nums = [1,1,1,2,2,3], k = 2",
+        output: "[1,2]",
+        explanation: "1 appears 3 times, 2 appears 2 times."
+      }
+    ],
+    starterCode: `function topKFrequent(nums, k) {
+  const counts = new Map();
+  for (const n of nums) counts.set(n, (counts.get(n) || 0) + 1);
+
+  const buckets = Array.from({ length: nums.length + 1 }, () => []);
+  for (const [num, freq] of counts.entries()) {
+    buckets[freq].push(num);
+  }
+
+  const res = [];
+  for (let f = buckets.length - 1; f >= 0 && res.length < k; f--) {
+    for (const num of buckets[f]) {
+      res.push(num);
+      if (res.length === k) return res;
+    }
+  }
+  return res;
+}`,
+    starterCodePy: `from collections import Counter
+
+def top_k_frequent(nums: list, k: int) -> list:
+    counts = Counter(nums)
+    buckets = [[] for _ in range(len(nums) + 1)]
+    for num, freq in counts.items():
+        buckets[freq].append(num)
+    res = []
+    for f in range(len(buckets) - 1, 0, -1):
+        for num in buckets[f]:
+            res.append(num)
+            if len(res) == k:
+                return res
+    return res
+`,
+    optimalSolution: `// Bucket indexing by frequency achieves strict O(N) time, beating O(N log K) heap when N is bounded.`,
+    timeComplexity: "O(N) linear time",
+    spaceComplexity: "O(N) for hash map and frequency buckets",
+    keyInsights: [
+      "Maximum possible frequency of any element is `nums.length`, so an array of `N + 1` buckets avoids sorting.",
+      "System Design follow-up: For an unbounded stream of billions of URLs, pair a Count-Min Sketch with a size-K Min-Heap."
+    ],
+    testCases: [
+      {
+        input: "nums = [1,1,1,2,2,3], k = 2",
+        expected: "[1,2]",
+        runnerCodeJs: `return topKFrequent([1,1,1,2,2,3], 2);`,
+        runnerCodePy: `top_k_frequent([1,1,1,2,2,3], 2)`
+      },
+      {
+        input: "nums = [4,4,4,6,6,1], k = 1",
+        expected: "[4]",
+        runnerCodeJs: `return topKFrequent([4,4,4,6,6,1], 1);`,
+        runnerCodePy: `top_k_frequent([4,4,4,6,6,1], 1)`
+      }
+    ]
   }
 ];
 
@@ -348,14 +481,59 @@ export const COMPANY_QUESTION_BANK: CompanyQuestionItem[] = [
     role: "AI / ML Infrastructure",
     level: "L6",
     roundType: "AI Architecture",
+    questionTitle: "Design LLM Inference & KV-Cache Serving System with Disaggregated Prefill/Decode",
+    details:
+      "Manage dynamic continuous batching, Radix-tree prefix KV-caching across H100 nodes, and request queuing under <350ms TTFT SLAs when GPU workers abruptly fail.",
+    askedAgo: "Asked 2 days ago",
+    frequency: "High Frequency",
+    keyRubricSignal: "Disaggregate compute-bound Prefill from memory-bound Decode over RDMA + PagedAttention KV block routing.",
+    linkedModule: "system_design",
+    linkedTopicId: "openai_llm_inference"
+  },
+  {
+    id: "q_openai_2",
+    company: "OpenAI",
+    role: "AI / ML Infrastructure",
+    level: "L5",
+    roundType: "AI Architecture",
     questionTitle: "Design Multi-Tenant Enterprise RAG with Real-Time ACL Permission Sync",
     details:
       "How do you index 500M Slack/Drive documents so that when a user is removed from a security group, they lose vector search visibility within 30 seconds without re-indexing chunks?",
-    askedAgo: "Asked 2 days ago",
-    frequency: "High Frequency",
+    askedAgo: "Asked 4 days ago",
+    frequency: "Verified Onsite",
     keyRubricSignal: "Decouple Zanzibar/Redis User->Group cache from chunk ACL metadata pre-filter bitmaps.",
     linkedModule: "system_design",
     linkedTopicId: "rag_enterprise"
+  },
+  {
+    id: "q_anthropic_1",
+    company: "Anthropic",
+    role: "AI / ML Infrastructure",
+    level: "L6",
+    roundType: "AI Architecture",
+    questionTitle: "Design a Batch Inference API & Safe Tool-Use Sandbox for Autonomous Agents",
+    details:
+      "Translate abstract AI agent requirements into hard infrastructure: token-bucket TPM/RPM rate limits, GPU memory batching, credential isolation, and rollback semantics.",
+    askedAgo: "Asked 3 days ago",
+    frequency: "High Frequency",
+    keyRubricSignal: "Combine Firecracker/gVisor microVM tool sandboxing with atomic Redis Lua TPM/RPM token buckets.",
+    linkedModule: "system_design",
+    linkedTopicId: "openai_llm_inference"
+  },
+  {
+    id: "q_anthropic_2",
+    company: "Anthropic",
+    role: "Backend / Distributed Systems",
+    level: "L5",
+    roundType: "Coding",
+    questionTitle: "Implement Token-Aware Sliding Window Rate Limiter for LLM API Tiers",
+    details:
+      "Enforce both Requests-Per-Minute (RPM) and Tokens-Per-Minute (TPM) per organization with O(1) amortized check latency.",
+    askedAgo: "Asked 5 days ago",
+    frequency: "Trending",
+    keyRubricSignal: "Monotonic timestamp queue eviction + discussion of atomic Redis Lua token bucket.",
+    linkedModule: "mock_interview",
+    linkedTopicId: "rate_limiter_sliding_window"
   },
   {
     id: "q_stripe_1",
@@ -363,12 +541,27 @@ export const COMPANY_QUESTION_BANK: CompanyQuestionItem[] = [
     role: "Backend / Distributed Systems",
     level: "L5",
     roundType: "System Design",
-    questionTitle: "Design High-Concurrency Flash Sale & Idempotent Payment Ledger",
+    questionTitle: "Design a Distributed Idempotent Payment Ledger & Flash-Sale Reservation Engine",
     details:
-      "Prevent double-charging and double-booking when 50,000 concurrent requests attempt to reserve the same inventory items with flaky client retries.",
-    askedAgo: "Asked 4 days ago",
+      "Ensure network timeouts, double-clicks, and delayed webhooks never result in double-charging or split-brain inventory states at 50k peak QPS.",
+    askedAgo: "Asked 3 days ago",
     frequency: "Verified Onsite",
     keyRubricSignal: "Combine client Idempotency-Key header in Redis with PostgreSQL optimistic version locking and fencing tokens.",
+    linkedModule: "system_design",
+    linkedTopicId: "ticketmaster"
+  },
+  {
+    id: "q_stripe_2",
+    company: "Stripe",
+    role: "Backend / Distributed Systems",
+    level: "L6",
+    roundType: "System Design",
+    questionTitle: "Design a Sub-50ms Real-Time Payment Fraud Detection & Feature Streaming Pipeline",
+    details:
+      "Score 25,000 transactions/sec synchronously before payment capture using rolling 5-minute velocity features from Kafka/Flink.",
+    askedAgo: "Asked 1 week ago",
+    frequency: "High Frequency",
+    keyRubricSignal: "Pre-compute rolling window aggregates in Flink -> Redis Cluster so synchronous scoring reads in <5ms.",
     linkedModule: "system_design",
     linkedTopicId: "ticketmaster"
   },
@@ -381,26 +574,11 @@ export const COMPANY_QUESTION_BANK: CompanyQuestionItem[] = [
     questionTitle: "Design Real-Time Driver Telemetry & Airport Surge Dispatch Engine",
     details:
       "Ingest 500k GPS pings/sec and match riders to drivers at busy airports without hot-shard collapse.",
-    askedAgo: "Asked 1 week ago",
+    askedAgo: "Asked 4 days ago",
     frequency: "High Frequency",
     keyRubricSignal: "Uber H3 hexagonal spatial index in Redis + bipartite batch matching window.",
     linkedModule: "system_design",
     linkedTopicId: "uber"
-  },
-  {
-    id: "q_anthropic_1",
-    company: "Anthropic",
-    role: "AI / ML Infrastructure",
-    level: "L5",
-    roundType: "Coding",
-    questionTitle: "Implement Token-Aware Sliding Window Rate Limiter for LLM API Tiers",
-    details:
-      "Enforce both Requests-Per-Minute (RPM) and Tokens-Per-Minute (TPM) per organization with O(1) amortized check latency.",
-    askedAgo: "Asked 5 days ago",
-    frequency: "Trending",
-    keyRubricSignal: "Monotonic timestamp queue eviction + discussion of atomic Redis Lua token bucket.",
-    linkedModule: "mock_interview",
-    linkedTopicId: "rate_limiter_sliding_window"
   },
   {
     id: "q_meta_1",
@@ -418,7 +596,37 @@ export const COMPANY_QUESTION_BANK: CompanyQuestionItem[] = [
     linkedTopicId: "whatsapp"
   },
   {
+    id: "q_meta_2",
+    company: "Meta",
+    role: "Backend / Distributed Systems",
+    level: "L6",
+    roundType: "System Design",
+    questionTitle: "Design LeetCode Online Judge & Real-Time 100k Contest Leaderboard",
+    details:
+      "Safely execute untrusted C++/Python code submissions in <2s and maintain live global rankings across 100,000 contestants.",
+    askedAgo: "Asked 6 days ago",
+    frequency: "Verified Onsite",
+    keyRubricSignal: "Firecracker microVMs with cgroups/seccomp + Redis ZSET composite score leaderboard.",
+    linkedModule: "system_design",
+    linkedTopicId: "leetcode_judge"
+  },
+  {
     id: "q_google_1",
+    company: "Google",
+    role: "Backend / Distributed Systems",
+    level: "L5",
+    roundType: "System Design",
+    questionTitle: "Design Google Drive / Dropbox Block-Level Delta Sync & Deduplication",
+    details:
+      "Sync 50GB files across desktop and mobile devices where editing 1MB only transfers the modified chunk.",
+    askedAgo: "Asked 5 days ago",
+    frequency: "High Frequency",
+    keyRubricSignal: "Rabin fingerprinting 4MB chunks + SHA-256 content-addressable S3 pre-signed URLs.",
+    linkedModule: "system_design",
+    linkedTopicId: "dropbox_sync"
+  },
+  {
+    id: "q_google_2",
     company: "Google",
     role: "Backend / Distributed Systems",
     level: "L5",
@@ -482,16 +690,16 @@ export const INITIAL_JOB_CARDS: JobApplicationCard[] = [
   {
     id: "job_2",
     company: "OpenAI",
-    role: "Staff AI Systems Engineer — Retrieval Infrastructure",
+    role: "Staff AI Systems Engineer — Inference & Retrieval",
     level: "L6",
     compensation: "$420k – $550k",
     stage: "oa_screen",
     atsMatchScore: 79,
     mockReadinessScore: 82,
-    nextAction: "Complete Enterprise RAG Architecture Deep Dive",
+    nextAction: "Complete LLM Inference KV-Cache & RAG Deep Dive",
     updatedAt: "Yesterday",
-    linkedProblemId: "rag_enterprise",
-    notes: "Technical phone screen scheduled for Friday. Focus on HNSW quantization, ACL pre-filtering, and streaming SSE latency."
+    linkedProblemId: "openai_llm_inference",
+    notes: "Technical phone screen scheduled for Friday. Focus on PagedAttention KV-cache routing, HNSW quantization, and streaming SSE."
   },
   {
     id: "job_3",

@@ -5,6 +5,7 @@ import {
   AlertTriangle,
   ArrowRight,
   CheckCircle2,
+  Database,
   Download,
   FileCheck2,
   Sparkles,
@@ -23,6 +24,7 @@ interface AtsResumeLabProps {
   jdText: string;
   setJdText: (text: string) => void;
   onNavigateToModule: (tab: ActiveTab, topicId?: string) => void;
+  onScanRecorded?: () => void;
 }
 
 type AtsSubStep = "input" | "bullets" | "keywords";
@@ -32,19 +34,52 @@ export default function AtsResumeLab({
   setResumeText,
   jdText,
   setJdText,
-  onNavigateToModule
+  onNavigateToModule,
+  onScanRecorded
 }: AtsResumeLabProps) {
   const [subStep, setSubStep] = useState<AtsSubStep>("input");
   const [keywordFilter, setKeywordFilter] = useState<"all" | "missing" | "found">("all");
   const [appliedBulletIds, setAppliedBulletIds] = useState<Record<string, boolean>>({});
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
   const [layoutWarning, setLayoutWarning] = useState<string | null>(null);
+  const [savingScan, setSavingScan] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const scanResult = useMemo(
     () => analyzeResumeAgainstJD(resumeText, jdText),
     [resumeText, jdText]
   );
+
+  const handleSaveScanSnapshot = async () => {
+    setSavingScan(true);
+    try {
+      const matchedCount = scanResult.keywords.filter((k) => k.foundInResume).length;
+      const missingCount = scanResult.keywords.filter((k) => !k.foundInResume).length;
+      await fetch("/api/db", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "record_resume_scan",
+          scan: {
+            roleTitle: scanResult.detectedRole,
+            targetLevel: scanResult.detectedLevel,
+            overallScore: scanResult.overallScore,
+            keywordMatchScore: scanResult.hardSkillMatchPct,
+            impactMetricScore: scanResult.impactMetricScore,
+            formattingScore: scanResult.parsabilityScore,
+            matchedCount,
+            missingCount
+          }
+        })
+      });
+      setUploadStatus(`✓ Saved Scan (${scanResult.overallScore}%) to SQLite DB`);
+      onScanRecorded?.();
+    } catch {
+      setUploadStatus("Failed to save scan snapshot.");
+    } finally {
+      setSavingScan(false);
+    }
+  };
 
   const handleLoadPreset = (presetId: string) => {
     const found = RESUME_JD_PRESETS.find((p) => p.id === presetId);
@@ -279,6 +314,15 @@ export default function AtsResumeLab({
               >
                 <Download className="w-3.5 h-3.5" />
                 <span>Export ATS-Clean PDF</span>
+              </button>
+
+              <button
+                onClick={handleSaveScanSnapshot}
+                disabled={savingScan}
+                className="px-3.5 py-1.5 rounded-xl bg-cyan-600/20 hover:bg-cyan-600/30 border border-cyan-500/40 text-xs font-semibold text-cyan-200 flex items-center gap-1.5 cursor-pointer"
+              >
+                <Database className="w-3.5 h-3.5" />
+                <span>{savingScan ? "Saving..." : "Log Scan to SQLite"}</span>
               </button>
 
               {uploadStatus && (

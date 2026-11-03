@@ -10,6 +10,7 @@
 # Production & runtime data
 /build
 /data/*.json
+/data/*.sqlite*
 
 # Misc
 .DS_Store

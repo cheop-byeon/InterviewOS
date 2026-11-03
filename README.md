@@ -62,21 +62,22 @@ flowchart LR
 * **Framework:** Next.js 15 (App Router) + React 19 + TypeScript
 * **Styling:** Tailwind CSS v4 + Lucide Icons (Progressive Disclosure dark UI)
 * **AI & Evaluation Engine:** Hybrid architecture—works **100% out-of-the-box** using the deterministic FAANG Rubric & ATS Engine (`src/lib/engines/`), with optional live API key integration for **Google Gemini**, **OpenAI GPT-4o**, or **Anthropic Claude** (`/api/ai`).
-* **Persistence:** Dual `localStorage` + server-side JSON database (`/api/db`).
+* **Persistence & Relational Database:** Powered by **SQLite 3 (`node:sqlite` in WAL mode)** at `data/interview_os.sqlite` with 8 normalized tables (`users`, `system_design_problems`, `coding_problems`, `question_bank`, `job_applications`, `star_stories`, `practice_sessions`, `resume_scans`), automatic schema migration/seeding, and an interactive **SQLite Relational DB Inspector** in the sidebar.
 
 ```text
 src/
 ├── app/
 │   ├── api/
 │   │   ├── ai/route.ts            # Live LLM proxy (Gemini / OpenAI / Anthropic)
-│   │   ├── db/route.ts            # Local JSON database persistence
+│   │   ├── db/route.ts            # SQLite 3 relational CRUD & telemetry API
+│   │   ├── questions/route.ts     # SQLite question bank filter, upvote & submission API
 │   │   ├── execute/route.ts       # Sandboxed JS/TS (Node VM) & Python 3 code runner
 │   │   └── parse-resume/route.ts  # PDF / DOCX / TXT resume text & layout parser
 │   ├── globals.css
 │   ├── layout.tsx
 │   └── page.tsx                   # Main workspace shell & Command Center
 ├── components/
-│   ├── Navbar.tsx                 # Left sidebar navigation, L4-L6 bar & AI modal
+│   ├── Navbar.tsx                 # Left sidebar, L4-L6 bar, SQLite DB Inspector & AI modal
 │   ├── AtsResumeLab.tsx           # 3-step ATS scanner, PDF upload/export & XYZ rewriter
 │   ├── SystemDesignPractice.tsx   # 5-step guided practice & drag-and-drop canvas
 │   ├── MockInterviewStudio.tsx    # Voice/text AI mock studio & multi-language code runner
@@ -85,6 +86,8 @@ src/
 │   └── JobTrackerCrm.tsx          # Kanban CRM, 1-click JD clipper & STAR story bank
 └── lib/
     ├── types.ts
+    ├── server/
+    │   └── sqliteDb.ts            # SQLite 3 WAL engine, 8-table schema & auto-seeding
     ├── data/
     │   ├── systemDesignProblems.ts
     │   ├── visualLibraryData.ts

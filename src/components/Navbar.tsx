@@ -5,16 +5,25 @@ import {
   Briefcase,
   Building2,
   Cpu,
+  Database,
+  Download,
   FileSearch,
   Layers,
   LayoutDashboard,
   MessageSquareCode,
   Network,
+  RefreshCw,
   Settings,
   Sparkles,
   X
 } from "lucide-react";
-import { ActiveTab, LLMConfig, TargetLevel } from "../lib/types";
+import {
+  ActiveTab,
+  DatabaseTelemetry,
+  LLMConfig,
+  ResumeScanRecord,
+  TargetLevel
+} from "../lib/types";
 
 interface NavbarProps {
   activeTab: ActiveTab;
@@ -24,6 +33,9 @@ interface NavbarProps {
   llmConfig: LLMConfig;
   setLlmConfig: (cfg: LLMConfig) => void;
   atsScore: number;
+  telemetry?: DatabaseTelemetry | null;
+  resumeScans?: ResumeScanRecord[];
+  onRefreshDatabase?: () => void;
 }
 
 export default function Navbar({
@@ -33,9 +45,14 @@ export default function Navbar({
   setTargetLevel,
   llmConfig,
   setLlmConfig,
-  atsScore
+  atsScore,
+  telemetry,
+  resumeScans = [],
+  onRefreshDatabase
 }: NavbarProps) {
   const [showAiModal, setShowAiModal] = useState(false);
+  const [showDbModal, setShowDbModal] = useState(false);
+  const [resettingDb, setResettingDb] = useState(false);
 
   const navGroups: {
     groupLabel: string;
@@ -64,7 +81,7 @@ export default function Navbar({
         {
           id: "question_bank",
           label: "Company Questions",
-          badge: "Live",
+          badge: "SQLite",
           icon: <Building2 className="w-4 h-4" />
         }
       ]
@@ -100,6 +117,44 @@ export default function Navbar({
     L4: "Mid-Level (IC4)",
     L5: "Senior (IC5)",
     L6: "Staff+ (IC6)"
+  };
+
+  const totalDbRows = telemetry
+    ? Object.values(telemetry.tableCounts).reduce((a, b) => a + b, 0)
+    : 34;
+
+  const handleResetDatabase = async () => {
+    setResettingDb(true);
+    try {
+      await fetch("/api/db", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reset_db" })
+      });
+      onRefreshDatabase?.();
+    } catch {
+      // Ignore error
+    } finally {
+      setResettingDb(false);
+    }
+  };
+
+  const handleExportDatabaseJson = async () => {
+    try {
+      const res = await fetch("/api/db");
+      const data = await res.json();
+      const blob = new Blob([JSON.stringify(data, null, 2)], {
+        type: "application/json"
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `interviewos-sqlite-dump-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      // Ignore error
+    }
   };
 
   return (
@@ -168,8 +223,8 @@ export default function Navbar({
           </div>
         </div>
 
-        {/* Bottom Sidebar Controls: Target Level & AI Settings */}
-        <div className="hidden lg:flex flex-col gap-3 p-4 border-t border-slate-800/80 bg-slate-950/40">
+        {/* Bottom Sidebar Controls: Target Level, SQLite Backend & AI Settings */}
+        <div className="hidden lg:flex flex-col gap-2.5 p-4 border-t border-slate-800/80 bg-slate-950/40">
           <div>
             <div className="flex items-center justify-between text-[11px] text-slate-400 mb-1.5">
               <span>Target Bar</span>
@@ -195,6 +250,22 @@ export default function Navbar({
           </div>
 
           <button
+            onClick={() => {
+              onRefreshDatabase?.();
+              setShowDbModal(true);
+            }}
+            className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 transition-colors cursor-pointer"
+          >
+            <div className="flex items-center gap-2">
+              <Database className="w-3.5 h-3.5 text-cyan-400" />
+              <span>SQLite Relational DB</span>
+            </div>
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-300 font-semibold">
+              {totalDbRows} rows
+            </span>
+          </button>
+
+          <button
             onClick={() => setShowAiModal(true)}
             className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 transition-colors cursor-pointer"
           >
@@ -210,6 +281,193 @@ export default function Navbar({
           </button>
         </div>
       </aside>
+
+      {/* SQLite Relational Database & Telemetry Modal */}
+      {showDbModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
+          <div className="w-full max-w-2xl rounded-2xl bg-slate-900 border border-slate-800 p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
+                  <Database className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-white text-base">
+                    SQLite 3 Relational Backend Inspector
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    {telemetry?.engine || "SQLite 3 (node:sqlite)"} •{" "}
+                    <code className="text-cyan-300">{telemetry?.dbPath || "data/interview_os.sqlite"}</code>{" "}
+                    ({telemetry ? `${Math.round(telemetry.fileSizeBytes / 1024)} KB` : "WAL Mode"})
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowDbModal(false)}
+                className="text-slate-400 hover:text-white cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Table Row Counts Grid */}
+            <div>
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-2">
+                Normalized SQL Tables (8 Active Tables)
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                {[
+                  {
+                    table: "system_design_problems",
+                    count: telemetry?.tableCounts.system_design_problems ?? 7,
+                    desc: "Full 5-Step Blueprints"
+                  },
+                  {
+                    table: "coding_problems",
+                    count: telemetry?.tableCounts.coding_problems ?? 5,
+                    desc: "Runnable JS/Py Suites"
+                  },
+                  {
+                    table: "question_bank",
+                    count: telemetry?.tableCounts.question_bank ?? 11,
+                    desc: "Onsite Questions"
+                  },
+                  {
+                    table: "job_applications",
+                    count: telemetry?.tableCounts.job_applications ?? 4,
+                    desc: "Kanban CRM Cards"
+                  },
+                  {
+                    table: "star_stories",
+                    count: telemetry?.tableCounts.star_stories ?? 2,
+                    desc: "Behavioral Stories"
+                  },
+                  {
+                    table: "practice_sessions",
+                    count: telemetry?.tableCounts.practice_sessions ?? 3,
+                    desc: "Scored Sessions"
+                  },
+                  {
+                    table: "resume_scans",
+                    count: telemetry?.tableCounts.resume_scans ?? 2,
+                    desc: "ATS Scan Logs"
+                  },
+                  {
+                    table: "users",
+                    count: telemetry?.tableCounts.users ?? 1,
+                    desc: "Candidate Profile"
+                  }
+                ].map((item) => (
+                  <div
+                    key={item.table}
+                    className="p-3 rounded-xl bg-slate-950 border border-slate-800/90 flex flex-col justify-between"
+                  >
+                    <div className="flex items-center justify-between">
+                      <code className="text-[11px] font-bold text-cyan-300 truncate">
+                        {item.table}
+                      </code>
+                      <span className="text-xs font-extrabold text-white bg-slate-800 px-1.5 py-0.5 rounded">
+                        {item.count}
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-slate-500 mt-1">{item.desc}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* SQLite Aggregated Readiness Metrics */}
+            {telemetry && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                <div className="p-3 rounded-xl bg-indigo-950/25 border border-indigo-500/30">
+                  <div className="text-[10px] text-indigo-300 uppercase font-semibold">
+                    SQL AVG(ats_score)
+                  </div>
+                  <div className="text-base font-extrabold text-white mt-0.5">
+                    {telemetry.aggregates.avgAtsScore}%
+                  </div>
+                </div>
+                <div className="p-3 rounded-xl bg-emerald-950/25 border border-emerald-500/30">
+                  <div className="text-[10px] text-emerald-300 uppercase font-semibold">
+                    SQL AVG(session_score)
+                  </div>
+                  <div className="text-base font-extrabold text-white mt-0.5">
+                    {telemetry.aggregates.avgPracticeScore}%
+                  </div>
+                </div>
+                <div className="p-3 rounded-xl bg-amber-950/25 border border-amber-500/30">
+                  <div className="text-[10px] text-amber-300 uppercase font-semibold">
+                    SQL SUM(upvotes)
+                  </div>
+                  <div className="text-base font-extrabold text-white mt-0.5">
+                    {telemetry.aggregates.totalUpvotes}
+                  </div>
+                </div>
+                <div className="p-3 rounded-xl bg-violet-950/25 border border-violet-500/30">
+                  <div className="text-[10px] text-violet-300 uppercase font-semibold">
+                    Active CRM Loops
+                  </div>
+                  <div className="text-base font-extrabold text-white mt-0.5">
+                    {telemetry.aggregates.activePipelineCount}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Historical ATS Resume Scans Table */}
+            {resumeScans.length > 0 && (
+              <div>
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-2">
+                  Recent <code className="text-cyan-300">resume_scans</code> Rows
+                </div>
+                <div className="space-y-2 max-h-40 overflow-y-auto">
+                  {resumeScans.slice(0, 5).map((scan) => (
+                    <div
+                      key={scan.id}
+                      className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between text-xs"
+                    >
+                      <div>
+                        <span className="font-semibold text-white">{scan.roleTitle}</span>
+                        <span className="text-slate-500 ml-2">
+                          ({scan.targetLevel} • {scan.matchedCount} matched / {scan.missingCount} gaps)
+                        </span>
+                      </div>
+                      <span className="font-bold text-emerald-400">{scan.overallScore}%</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Database Actions Footer */}
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-800">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleExportDatabaseJson}
+                  className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Download className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Export SQLite Dump (.JSON)</span>
+                </button>
+                <button
+                  onClick={handleResetDatabase}
+                  disabled={resettingDb}
+                  className="px-3.5 py-2 rounded-xl bg-rose-950/40 hover:bg-rose-900/50 border border-rose-500/30 text-xs font-semibold text-rose-200 flex items-center gap-1.5 cursor-pointer"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${resettingDb ? "animate-spin" : ""}`} />
+                  <span>{resettingDb ? "Re-seeding..." : "Reset & Re-Seed Default Data"}</span>
+                </button>
+              </div>
+              <button
+                onClick={() => setShowDbModal(false)}
+                className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* AI Engine Modal */}
       {showAiModal && (

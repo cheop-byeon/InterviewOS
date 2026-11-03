@@ -30,9 +30,17 @@ const KNOWN_CATALOG: {
   { keyword: "gRPC & REST", aliases: ["grpc", "rest", "api"], category: "hard_skill", importance: "critical" },
   { keyword: "Kubernetes & AWS", aliases: ["kubernetes", "k8s", "eks", "aws", "docker"], category: "tooling", importance: "recommended" },
   { keyword: "Observability", aliases: ["observability", "opentelemetry", "prometheus", "grafana", "monitoring"], category: "tooling", importance: "bonus" },
-  { keyword: "RAG & Vector Databases", aliases: ["rag", "retrieval-augmented", "vector", "hnsw", "qdrant", "milvus", "embeddings"], category: "architecture", importance: "critical" },
-  { keyword: "Hybrid Search (BM25)", aliases: ["bm25", "hybrid search", "reranking", "cross-encoder", "elasticsearch"], category: "architecture", importance: "critical" },
-  { keyword: "LLM Inference & Streaming", aliases: ["vllm", "kv cache", "streaming", "sse", "llm"], category: "hard_skill", importance: "recommended" },
+  { keyword: "RAG & Vector Databases", aliases: ["rag", "retrieval-augmented", "vector", "hnsw", "qdrant", "milvus", "pinecone", "pgvector", "embeddings"], category: "architecture", importance: "critical" },
+  { keyword: "Hybrid Search (BM25)", aliases: ["bm25", "hybrid search", "reranking", "cross-encoder", "elasticsearch", "opensearch"], category: "architecture", importance: "critical" },
+  { keyword: "LLM Inference & KV-Cache", aliases: ["vllm", "tensorrt", "kv cache", "pagedattention", "prefill", "streaming", "sse", "llm"], category: "hard_skill", importance: "recommended" },
+  { keyword: "NoSQL & Wide-Column DBs", aliases: ["cassandra", "dynamodb", "scylla", "bigtable", "mongodb", "nosql"], category: "hard_skill", importance: "recommended" },
+  { keyword: "Stream Processing (Flink/Spark)", aliases: ["flink", "spark", "kinesis", "stream processing", "watermark", "windowing"], category: "architecture", importance: "recommended" },
+  { keyword: "React & Modern Frontend", aliases: ["react", "next.js", "nextjs", "redux", "tailwind", "frontend"], category: "hard_skill", importance: "recommended" },
+  { keyword: "GraphQL & API Gateways", aliases: ["graphql", "apollo", "envoy", "kong", "api gateway"], category: "hard_skill", importance: "bonus" },
+  { keyword: "Infrastructure as Code (Terraform)", aliases: ["terraform", "pulumi", "cloudformation", "iac", "helm"], category: "tooling", importance: "recommended" },
+  { keyword: "CI/CD & DevSecOps", aliases: ["ci/cd", "github actions", "gitlab", "jenkins", "argocd", "canary"], category: "tooling", importance: "recommended" },
+  { keyword: "Consensus & Replication (Raft/Paxos)", aliases: ["raft", "paxos", "quorum", "wal", "write-ahead log", "replication", "leader election"], category: "architecture", importance: "bonus" },
+  { keyword: "Security & Auth (OAuth2/RBAC)", aliases: ["oauth", "oauth2", "oidc", "jwt", "rbac", "acl", "zero-trust", "encryption"], category: "architecture", importance: "recommended" },
   { keyword: "Technical Leadership", aliases: ["led", "mentored", "rfc", "leadership", "architected", "cross-functional", "strategy"], category: "soft_skill", importance: "critical" }
 ];
 

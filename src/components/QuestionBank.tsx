@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   ArrowRight,
   Building2,
   CheckCircle2,
   Clock,
+  Database,
   Filter,
   MessageSquareQuote,
   Plus,
@@ -18,6 +19,7 @@ import { ActiveTab, CompanyQuestionItem, TargetLevel } from "../lib/types";
 
 interface QuestionBankProps {
   onNavigateToModule: (tab: ActiveTab, topicId?: string) => void;
+  onDatabaseMutated?: () => void;
 }
 
 const ANNOTATED_WALKTHROUGH = [
@@ -50,7 +52,10 @@ const ANNOTATED_WALKTHROUGH = [
   }
 ];
 
-export default function QuestionBank({ onNavigateToModule }: QuestionBankProps) {
+export default function QuestionBank({
+  onNavigateToModule,
+  onDatabaseMutated
+}: QuestionBankProps) {
   const [subTab, setSubTab] = useState<"questions" | "peer_annotated">("questions");
   const [selectedCompany, setSelectedCompany] = useState<string>("All");
   const [selectedRound, setSelectedRound] = useState<string>("All");
@@ -64,6 +69,27 @@ export default function QuestionBank({ onNavigateToModule }: QuestionBankProps) 
     q_google_1: 33
   });
   const [questions, setQuestions] = useState<CompanyQuestionItem[]>(COMPANY_QUESTION_BANK);
+  const [dbSynced, setDbSynced] = useState(false);
+
+  // Hydrate from SQLite question_bank table
+  useEffect(() => {
+    fetch("/api/questions")
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data.questions) && data.questions.length > 0) {
+          setQuestions(data.questions);
+          const map: Record<string, number> = {};
+          data.questions.forEach((q: CompanyQuestionItem) => {
+            map[q.id] = q.upvotes ?? 25;
+          });
+          setUpvotes(map);
+          setDbSynced(true);
+        }
+      })
+      .catch(() => {
+        // Fallback to static catalog
+      });
+  }, []);
 
   // New Community Report Form State
   const [showAddForm, setShowAddForm] = useState(false);
@@ -90,6 +116,27 @@ export default function QuestionBank({ onNavigateToModule }: QuestionBankProps) 
     return matchCompany && matchRound;
   });
 
+  const handleUpvote = async (questionId: string) => {
+    setUpvotes((prev) => ({
+      ...prev,
+      [questionId]: (prev[questionId] || 20) + 1
+    }));
+    try {
+      const res = await fetch("/api/questions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "upvote", questionId, delta: 1 })
+      });
+      const data = await res.json();
+      if (typeof data.upvotes === "number") {
+        setUpvotes((prev) => ({ ...prev, [questionId]: data.upvotes }));
+      }
+      onDatabaseMutated?.();
+    } catch {
+      // Ignore offline error
+    }
+  };
+
   const handleAddReport = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTitle.trim() || !newDetails.trim()) return;
@@ -107,7 +154,8 @@ export default function QuestionBank({ onNavigateToModule }: QuestionBankProps) 
         newSignal.trim() ||
         "Clearly separate control plane from data plane and defend CAP theorem trade-offs.",
       linkedModule: "system_design",
-      linkedTopicId: "ticketmaster"
+      linkedTopicId: "ticketmaster",
+      upvotes: 1
     };
     const updated = [item, ...questions];
     setQuestions(updated);
@@ -118,11 +166,12 @@ export default function QuestionBank({ onNavigateToModule }: QuestionBankProps) 
     setNewSignal("");
 
     try {
-      await fetch("/api/db", {
+      await fetch("/api/questions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ customQuestions: updated })
+        body: JSON.stringify({ question: item })
       });
+      onDatabaseMutated?.();
     } catch {
       // Ignore offline
     }
@@ -133,9 +182,17 @@ export default function QuestionBank({ onNavigateToModule }: QuestionBankProps) 
       {/* Header & Mode Switcher */}
       <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <span className="text-xs font-semibold text-indigo-400 uppercase tracking-wider">
-            Aced.io & Pramp Community Ecosystem
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-indigo-400 uppercase tracking-wider">
+              Aced.io & Pramp Community Ecosystem
+            </span>
+            {dbSynced && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-[10px] font-semibold text-emerald-300">
+                <Database className="w-2.5 h-2.5" />
+                SQLite Live
+              </span>
+            )}
+          </div>
           <h1 className="text-lg font-bold text-white mt-0.5">
             Crowdsourced Question Bank & Peer Walkthroughs
           </h1>
@@ -296,16 +353,11 @@ export default function QuestionBank({ onNavigateToModule }: QuestionBankProps) 
 
                     <div className="flex items-center gap-3 text-xs text-slate-400">
                       <button
-                        onClick={() =>
-                          setUpvotes((prev) => ({
-                            ...prev,
-                            [q.id]: (prev[q.id] || 20) + 1
-                          }))
-                        }
+                        onClick={() => handleUpvote(q.id)}
                         className="flex items-center gap-1 px-2 py-0.5 rounded bg-slate-950 border border-slate-800 hover:border-indigo-500/40 text-slate-300 cursor-pointer"
                       >
                         <ThumbsUp className="w-3 h-3 text-indigo-400" />
-                        <span>{upvotes[q.id] || 25} Verified</span>
+                        <span>{upvotes[q.id] ?? q.upvotes ?? 25} Verified</span>
                       </button>
                       <span className="flex items-center gap-1">
                         <Clock className="w-3.5 h-3.5" />

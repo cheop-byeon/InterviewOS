@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   ArrowRight,
   BookOpen,
   Briefcase,
   CheckCircle2,
   ClipboardPaste,
+  Database,
   Plus,
   Sparkles
 } from "lucide-react";
@@ -26,6 +27,7 @@ import {
 interface JobTrackerCrmProps {
   onNavigateToModule: (tab: ActiveTab, topicId?: string) => void;
   resumeText?: string;
+  onDatabaseMutated?: () => void;
 }
 
 const STAGES: { id: JobStage; label: string; badgeColor: string }[] = [
@@ -38,11 +40,13 @@ const STAGES: { id: JobStage; label: string; badgeColor: string }[] = [
 
 export default function JobTrackerCrm({
   onNavigateToModule,
-  resumeText = ""
+  resumeText = "",
+  onDatabaseMutated
 }: JobTrackerCrmProps) {
   const [subView, setSubView] = useState<"kanban" | "star">("kanban");
   const [jobs, setJobs] = useState<JobApplicationCard[]>(INITIAL_JOB_CARDS);
   const [stories, setStories] = useState<StarStory[]>(INITIAL_STAR_STORIES);
+  const [dbSynced, setDbSynced] = useState(false);
 
   const [newCompany, setNewCompany] = useState("");
   const [newRole, setNewRole] = useState("");
@@ -53,16 +57,52 @@ export default function JobTrackerCrm({
   const [newStoryTitle, setNewStoryTitle] = useState("");
   const [newStoryResult, setNewStoryResult] = useState("");
 
+  useEffect(() => {
+    fetch("/api/db")
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data.jobCards) && data.jobCards.length > 0) {
+          setJobs(data.jobCards);
+        }
+        if (Array.isArray(data.starStories) && data.starStories.length > 0) {
+          setStories(data.starStories);
+        }
+        setDbSynced(true);
+      })
+      .catch(() => {});
+  }, []);
+
+  const persistJobsToSqlite = (nextJobs: JobApplicationCard[]) => {
+    setJobs(nextJobs);
+    fetch("/api/db", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jobCards: nextJobs })
+    })
+      .then(() => onDatabaseMutated?.())
+      .catch(() => {});
+  };
+
+  const persistStoriesToSqlite = (nextStories: StarStory[]) => {
+    setStories(nextStories);
+    fetch("/api/db", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ starStories: nextStories })
+    })
+      .then(() => onDatabaseMutated?.())
+      .catch(() => {});
+  };
+
   const handleAdvanceJobStage = (jobId: string) => {
     const order: JobStage[] = ["wishlist", "applied", "oa_screen", "onsite", "offer"];
-    setJobs((prev) =>
-      prev.map((j) => {
-        if (j.id !== jobId) return j;
-        const idx = order.indexOf(j.stage);
-        const nextStage = order[Math.min(order.length - 1, idx + 1)];
-        return { ...j, stage: nextStage, updatedAt: "Just now" };
-      })
-    );
+    const nextJobs = jobs.map((j) => {
+      if (j.id !== jobId) return j;
+      const idx = order.indexOf(j.stage);
+      const nextStage = order[Math.min(order.length - 1, idx + 1)];
+      return { ...j, stage: nextStage, updatedAt: "Just now" };
+    });
+    persistJobsToSqlite(nextJobs);
   };
 
   const handleAddJob = (e: React.FormEvent) => {
@@ -82,7 +122,7 @@ export default function JobTrackerCrm({
       linkedProblemId: "ticketmaster",
       notes: "Added via Job Pipeline CRM."
     };
-    setJobs((prev) => [created, ...prev]);
+    persistJobsToSqlite([created, ...jobs]);
     setNewCompany("");
     setNewRole("");
   };
@@ -124,7 +164,7 @@ export default function JobTrackerCrm({
       notes: `Auto-clipped from JD with ${scan.overallScore}% ATS match.`
     };
 
-    setJobs((prev) => [clippedCard, ...prev]);
+    persistJobsToSqlite([clippedCard, ...jobs]);
     setClippedJdText("");
     setShowClipper(false);
   };
@@ -143,7 +183,7 @@ export default function JobTrackerCrm({
       resultQuantified: newStoryResult.trim(),
       levelImpactNote: "Strong ownership and quantified engineering outcome."
     };
-    setStories((prev) => [story, ...prev]);
+    persistStoriesToSqlite([story, ...stories]);
     setNewStoryTitle("");
     setNewStoryResult("");
   };
@@ -153,7 +193,15 @@ export default function JobTrackerCrm({
       {/* Compact Header & Sub-View Switcher */}
       <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-lg font-bold text-white">Career Pipeline & STAR Stories</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-lg font-bold text-white">Career Pipeline & STAR Stories</h1>
+            {dbSynced && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-[10px] font-semibold text-emerald-300">
+                <Database className="w-2.5 h-2.5" />
+                SQLite Live
+              </span>
+            )}
+          </div>
           <p className="text-xs text-slate-400 mt-0.5">
             Manage active applications, auto-clip Job Descriptions (Simplify style), and map STAR stories.
           </p>
