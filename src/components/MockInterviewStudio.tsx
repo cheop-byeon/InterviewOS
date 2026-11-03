@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Award,
   Code2,
@@ -11,9 +11,13 @@ import {
   RotateCcw,
   Send,
   Sparkles,
+  Video,
   Volume2,
   VolumeX
 } from "lucide-react";
+import AiInterviewerStage, {
+  INTERVIEWER_PERSONAS
+} from "./AiInterviewerStage";
 import { CODING_PROBLEMS } from "../lib/data/mockInterviewData";
 import { COMPANY_INSIDER_RUBRICS } from "../lib/data/companyRubrics";
 import { SYSTEM_DESIGN_PROBLEMS } from "../lib/data/systemDesignProblems";
@@ -113,9 +117,15 @@ export default function MockInterviewStudio({
       "Start by clarifying functional vs. non-functional constraints and stating your core assumptions out loud."
   });
   const [scorecard, setScorecard] = useState<InterviewScorecard | null>(null);
-  const [ttsEnabled, setTtsEnabled] = useState<boolean>(false);
+  const [ttsEnabled, setTtsEnabled] = useState<boolean>(true);
+  const [isAiSpeaking, setIsAiSpeaking] = useState<boolean>(false);
   const [isListening, setIsListening] = useState<boolean>(false);
   const [isSending, setIsSending] = useState<boolean>(false);
+  const [handsFreeMode, setHandsFreeMode] = useState<boolean>(false);
+  const [showVideoAvatar, setShowVideoAvatar] = useState<boolean>(true);
+  const [liveTranscriptPreview, setLiveTranscriptPreview] =
+    useState<string>("");
+  const speechTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     setCodeValue(
@@ -153,25 +163,78 @@ export default function MockInterviewStudio({
     ]);
   }, [mode, selectedCodingId, selectedSysId, targetLevel, currentCoding, currentSys]);
 
-  const speakText = (text: string) => {
-    if (!ttsEnabled || typeof window === "undefined" || !("speechSynthesis" in window))
+  const speakText = (text: string, forceSpeak = false) => {
+    const cleanText = text.replace(/[*`_#]/g, "").trim();
+    const words = cleanText.split(/\s+/).length;
+    const estimatedMs = Math.min(14000, Math.max(2400, words * 310));
+
+    if (speechTimerRef.current) {
+      clearTimeout(speechTimerRef.current);
+    }
+
+    // Always animate the AI Interviewer figure lip-sync & waveform when replying
+    setIsAiSpeaking(true);
+    speechTimerRef.current = setTimeout(() => {
+      setIsAiSpeaking(false);
+    }, estimatedMs);
+
+    if (
+      (!ttsEnabled && !forceSpeak) ||
+      typeof window === "undefined" ||
+      !("speechSynthesis" in window)
+    ) {
       return;
+    }
+
+    const persona =
+      INTERVIEWER_PERSONAS[selectedCompanyLoopId] ||
+      INTERVIEWER_PERSONAS.finn_vend_schibsted;
+
     window.speechSynthesis.cancel();
-    const utter = new SpeechSynthesisUtterance(text.replace(/[*`_#]/g, ""));
-    utter.rate = 1.05;
+    const utter = new SpeechSynthesisUtterance(cleanText);
+    utter.rate = persona.voiceRate;
+    utter.pitch = persona.voicePitch;
+
+    const voices = window.speechSynthesis.getVoices();
+    const preferredVoice = voices.find(
+      (v) =>
+        v.lang.includes(persona.voiceLangHint) &&
+        (v.name.includes("Natural") ||
+          v.name.includes("Google") ||
+          v.name.includes("Daniel") ||
+          v.name.includes("Samantha"))
+    );
+    if (preferredVoice) {
+      utter.voice = preferredVoice;
+    }
+
+    utter.onstart = () => setIsAiSpeaking(true);
+    utter.onend = () => {
+      if (speechTimerRef.current) clearTimeout(speechTimerRef.current);
+      setIsAiSpeaking(false);
+    };
+    utter.onerror = () => {
+      setIsAiSpeaking(false);
+    };
     window.speechSynthesis.speak(utter);
   };
 
   const handleToggleVoiceMic = () => {
     if (typeof window === "undefined") return;
+    if ("speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+      setIsAiSpeaking(false);
+    }
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRec) {
-      setCandidateInput((prev) =>
-        prev
-          ? prev
-          : "We require strict ACID consistency for booking so no two users double-book a seat, paired with <150ms P99 read latency for the venue seat map using Redis caching."
-      );
+      const sampleSpoken =
+        "We require strict ACID consistency for booking so no two users double-book an item, paired with <50ms P99 read latency using Vespa/Redis caching and a transactional Kafka outbox.";
+      setCandidateInput(sampleSpoken);
+      if (handsFreeMode) {
+        void submitCandidateText(sampleSpoken);
+      }
       return;
     }
 
@@ -182,23 +245,47 @@ export default function MockInterviewStudio({
 
     const recognition = new SpeechRec();
     recognition.lang = "en-US";
-    recognition.interimResults = false;
+    recognition.interimResults = true;
     setIsListening(true);
+    setLiveTranscriptPreview("Listening...");
+    let finalSpoken = "";
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     recognition.onresult = (event: any) => {
-      const transcript = event.results?.[0]?.[0]?.transcript || "";
-      setCandidateInput((prev) => `${prev ? prev + " " : ""}${transcript}`);
-      setIsListening(false);
+      let interim = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const chunk = event.results[i][0]?.transcript || "";
+        if (event.results[i].isFinal) {
+          finalSpoken += `${chunk} `;
+        } else {
+          interim += chunk;
+        }
+      }
+      const combined = `${finalSpoken}${interim}`.trim();
+      setLiveTranscriptPreview(combined);
+      if (finalSpoken.trim()) {
+        setCandidateInput((prev) => `${prev ? prev + " " : ""}${finalSpoken.trim()}`);
+      }
     };
-    recognition.onerror = () => setIsListening(false);
-    recognition.onend = () => setIsListening(false);
+    recognition.onerror = () => {
+      setIsListening(false);
+      setLiveTranscriptPreview("");
+    };
+    recognition.onend = () => {
+      setIsListening(false);
+      setLiveTranscriptPreview("");
+      if (handsFreeMode && finalSpoken.trim()) {
+        void submitCandidateText(finalSpoken.trim());
+      }
+    };
     recognition.start();
   };
 
-  const handleSendCandidateReply = async () => {
-    if (!candidateInput.trim()) return;
+  const submitCandidateText = async (overrideText?: string) => {
+    const rawText = overrideText ?? candidateInput;
+    if (!rawText.trim()) return;
     setIsSending(true);
-    const userText = candidateInput.trim();
+    const userText = rawText.trim();
     setCandidateInput("");
 
     const candidateMsg: InterviewMessage = {
@@ -275,6 +362,10 @@ export default function MockInterviewStudio({
     setTurnCount((prev) => prev + 1);
     setIsSending(false);
     speakText(aiReplyText);
+  };
+
+  const handleSendCandidateReply = () => {
+    void submitCandidateText();
   };
 
   // Real Sandboxed Code Execution via /api/execute
@@ -548,6 +639,17 @@ export default function MockInterviewStudio({
 
               <div className="flex items-center gap-2">
                 <button
+                  onClick={() => setShowVideoAvatar(!showVideoAvatar)}
+                  className={`px-2.5 py-1 rounded-lg text-xs flex items-center gap-1 border cursor-pointer ${
+                    showVideoAvatar
+                      ? "bg-cyan-600/20 border-cyan-500/40 text-cyan-200"
+                      : "bg-slate-950 border-slate-800 text-slate-400"
+                  }`}
+                >
+                  <Video className="w-3.5 h-3.5" />
+                  <span>{showVideoAvatar ? "AI Figure: ON" : "AI Figure: OFF"}</span>
+                </button>
+                <button
                   onClick={() => setShowCoachHint(!showCoachHint)}
                   className="px-2.5 py-1 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 text-xs text-amber-300 flex items-center gap-1 cursor-pointer"
                 >
@@ -555,7 +657,14 @@ export default function MockInterviewStudio({
                   <span>{showCoachHint ? "Hide Hint" : "Hint"}</span>
                 </button>
                 <button
-                  onClick={() => setTtsEnabled(!ttsEnabled)}
+                  onClick={() => {
+                    const next = !ttsEnabled;
+                    setTtsEnabled(next);
+                    if (!next && typeof window !== "undefined" && "speechSynthesis" in window) {
+                      window.speechSynthesis.cancel();
+                      setIsAiSpeaking(false);
+                    }
+                  }}
                   className={`px-2.5 py-1 rounded-lg text-xs flex items-center gap-1 border cursor-pointer ${
                     ttsEnabled
                       ? "bg-indigo-600/20 border-indigo-500/40 text-indigo-300"
@@ -582,6 +691,60 @@ export default function MockInterviewStudio({
             {showCoachHint && (
               <div className="mt-3 p-3 rounded-xl bg-amber-950/20 border border-amber-500/30 text-xs text-amber-200">
                 <strong>Coach Whisper:</strong> {liveSignal.coachHint}
+              </div>
+            )}
+
+            {/* LIVE AI INTERVIEWER FIGURE & VOICE CALL STAGE */}
+            {showVideoAvatar && (
+              <div className="mt-3">
+                <AiInterviewerStage
+                  companyLoopId={selectedCompanyLoopId}
+                  companyName={activeCompanyRubric.company}
+                  targetLevel={targetLevel}
+                  isAiSpeaking={isAiSpeaking}
+                  isListening={isListening}
+                  isThinking={isSending}
+                  ttsEnabled={ttsEnabled}
+                  handsFreeMode={handsFreeMode}
+                  latestInterviewerText={
+                    [...messages].reverse().find((m) => m.role === "interviewer")
+                      ?.content || ""
+                  }
+                  liveTranscriptPreview={liveTranscriptPreview}
+                  clarityScore={liveSignal.clarity}
+                  depthScore={liveSignal.depth}
+                  onToggleTts={() => {
+                    const next = !ttsEnabled;
+                    setTtsEnabled(next);
+                    if (!next && typeof window !== "undefined" && "speechSynthesis" in window) {
+                      window.speechSynthesis.cancel();
+                      setIsAiSpeaking(false);
+                    }
+                  }}
+                  onToggleMic={handleToggleVoiceMic}
+                  onToggleHandsFree={() => {
+                    const next = !handsFreeMode;
+                    setHandsFreeMode(next);
+                    if (next) {
+                      setTtsEnabled(true);
+                      const lastMsg = [...messages]
+                        .reverse()
+                        .find((m) => m.role === "interviewer");
+                      if (lastMsg) {
+                        speakText(lastMsg.content, true);
+                      }
+                    }
+                  }}
+                  onReplayLastPrompt={() => {
+                    setTtsEnabled(true);
+                    const lastMsg = [...messages]
+                      .reverse()
+                      .find((m) => m.role === "interviewer");
+                    if (lastMsg) {
+                      speakText(lastMsg.content, true);
+                    }
+                  }}
+                />
               </div>
             )}
 
