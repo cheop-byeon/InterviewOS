@@ -1,20 +1,61 @@
 # InterviewOS — Unified Career, ATS, System Design & AI Mock Interview Platform
 
-**InterviewOS** is an all-in-one technical career and interview preparation platform built with **Next.js 15, React 19, TypeScript, Tailwind CSS, and SQLite 3 (`node:sqlite`)**. It unifies the core workflows of leading career platforms—**Hello Interview**, **Aced.io (Exponent / Pramp)**, **ByteByteGo**, **Jobscan**, **Resume Worded**, and **Simplify / Huntr**—into a single, progressive-disclosure workspace.
+**InterviewOS** is a full-stack technical career and interview preparation platform built with **Next.js 15, React 19, TypeScript, Tailwind CSS, and SQLite 3 (`node:sqlite`)**. It unifies the core workflows of leading career platforms—**Hello Interview**, **Aced.io (Exponent / Pramp)**, **ByteByteGo**, **Jobscan**, **Teamtailor / Jobylon Nordic ATS**, and **Simplify / Huntr**—into a single progressive-disclosure workspace covering both **US Big Tech / AI Labs** and **European & Nordic Tech Leaders**.
+
+---
+
+## ⚡ One-Command Quick Start (`./start.sh`)
+
+Everything needed to verify runtimes, install dependencies, initialize the **SQLite 3 (`data/interview_os.sqlite`)** database, type-check the codebase, and launch the server is contained in a single bash script: **[`start.sh`](./start.sh)**.
+
+```bash
+chmod +x start.sh
+./start.sh
+```
+
+### Additional `start.sh` Options
+```bash
+# Wipe and re-seed the SQLite database with the latest blueprints, questions & job cards:
+./start.sh --reset-db
+
+# Build and start in production mode:
+./start.sh --prod
+
+# Run on a custom port (default is 3000):
+PORT=3001 ./start.sh
+```
+
+Open **[http://localhost:3000](http://localhost:3000)** in your browser.
 
 ---
 
 ## ✨ Why InterviewOS?
 
-Today's job applicants often juggle 4–5 disconnected subscriptions across different stages of their job search. **InterviewOS** connects context across the entire loop:
+Today's software engineers often juggle 4–5 disconnected subscriptions across different stages of their job search. **InterviewOS** connects context across the entire loop:
 
 ```mermaid
 flowchart LR
-    A["1. ATS & XYZ Resume Lab<br/>(Upload PDF/DOCX + Vendor Calibration)"] --> B["2. Visual Concept Library<br/>(0→10M Scaling & Coding Patterns)"]
-    B --> C["3. 5-Step System Design<br/>(Drag-and-Drop Canvas + Linter)"]
-    C --> D["4. Live AI Mock Studio<br/>(Company Insider Rubrics + Code Sandbox)"]
-    D --> E["5. Job CRM & Question Bank<br/>(Live Scraper + Chrome Clipper)"]
+    A["1. ATS & XYZ Resume Lab<br/>(Workday / Greenhouse / Teamtailor)"] --> B["2. Visual Concept Library<br/>(0→10M Scaling & Coding Patterns)"]
+    B --> C["3. 5-Step System Design<br/>(11 Blueprints + Drag & Drop Canvas)"]
+    C --> D["4. Live AI Mock Studio<br/>(Animated AI Figure + Voice Call + Code Sandbox)"]
+    D --> E["5. Job CRM & Question Bank<br/>(Nordic/EU & US Onsites + Chrome Clipper)"]
 ```
+
+---
+
+## 🌍 Global + Nordic & European Tech Localization
+
+In addition to US Silicon Valley leaders (**OpenAI**, **Anthropic**, **Stripe**, **Uber**, **Meta**, **Google**, **Amazon**, **Databricks**, **Netflix**, **Airbnb**, **Apple**), InterviewOS features deep localization for **Europe's & the Nordics' top engineering employers**:
+
+| Company / Group | Hubs | Signature Architecture & Interview Loop in InterviewOS |
+| :--- | :--- | :--- |
+| **Revolut** *(Europe's #1 Private Tech Co — \$45B–\$115B)* | London, Stockholm, Vilnius, Remote EU/Nordics | **Live TDD Coding** (*Thread-Safe Load Balancer Registry* — write unit tests first, zero Spring Boot magic!) + **Multi-Currency FX 30s Quote Lock & Double-Entry Atomic Ledger** (Java 21, Kotlin, jOOQ, PostgreSQL). |
+| **FINN.no / Vend Marketplaces** *(FINN.no, Blocket.se, Qasa, Tori.fi, Oikotie, DBA.dk, Bilbasen)* | Oslo, Stockholm, Helsinki, Copenhagen | **Vespa / OpenSearch** sub-50ms geo-faceted search, ***"Fiks Ferdig"*** recommerce transactional escrow (Vipps/Klarna), and **Federated Kafka Data Mesh** with Avro/Protobuf Data Contracts. |
+| **Schibsted Media** *(VG.no, Aftonbladet, Aftenposten, SvD, Omni)* | Oslo, Stockholm | **Varnish Cache Edge Shield** (originally born at VG.no!) using `stale-while-revalidate` (`beresp.grace`) + single-flight request coalescing to absorb **50x (300k QPS) breaking-news spikes**, plus **Schibsted Account (SPiD)** SSO. |
+| **Spotify** | Stockholm HQ | **Spotify Connect** multi-device playback state sync (`<100ms` handoff via WebSockets/Dealer), CDN byte-range audio caching, **Production Incident Case Study**, and **Band Manifesto** Squad autonomy round. |
+| **Klarna & Vipps MobilePay** | Stockholm, Oslo | **Sub-80ms BNPL Checkout Risk Engine** (BankID / Tink PSD2 signals) + **EU GDPR Article 17 Crypto-Shredding** (`per-user KMS DEK deletion`) on immutable Kafka audit logs. |
+| **Wolt** | Helsinki HQ, Stockholm | **Production Take-Home API Defense & Live Refactoring** + **H3 Hexagonal 3-Sided Courier Batch Dispatch** under Nordic winter weather surges. |
+| **Sana Labs, Cognite & Oura** | Stockholm, Oslo, Helsinki / Oulu | **Enterprise Multi-Tenant RAG with EU GDPR Residency** (Sana), **2M msg/sec Offshore Industrial IoT Ingestion** (Cognite), and **Biometric Ring HRV Time-Series Window Merging** (Oura). |
 
 ---
 
@@ -22,50 +63,52 @@ flowchart LR
 
 ### 1. ATS Scanner, File Parser & Google XYZ Bullet Optimizer (`src/components/AtsResumeLab.tsx`)
 * **Multi-Format Resume Upload (`/api/parse-resume`):** Upload `.pdf`, `.docx`, `.txt`, or `.md` resumes with automatic multi-column/table layout warning detection.
-* **Corporate ATS Vendor Parser Calibration (`Workday`, `Greenhouse`, `Lever`, `iCIMS / Taleo`):** Simulate how specific corporate ATS parsers weight and penalize your resume layout, acronyms, and keyword density.
+* **5 Corporate & Nordic ATS Vendor Profiles (`Workday`, `Greenhouse`, `Lever`, `iCIMS / Taleo`, and `Teamtailor & Jobylon Nordic ATS`):** Simulate how specific ATS parsers weight and penalize your resume layout, acronyms, and keyword density.
 * **1-Click Google XYZ Bullet Rewriter:** Audits every experience bullet and offers high-impact rewrites following Google's XYZ formula (*Accomplished [X] as measured by [Y], by doing [Z]*) that live-patch your resume and recalculate your ATS score immediately.
 * **1-Click ATS-Clean PDF Export & SQLite Scan Logging:** Exports your optimized resume into a clean single-column PDF layout and logs historical scan snapshots to SQLite.
 
 ### 2. 5-Step Guided System Design + Drag-and-Drop Whiteboard (`src/components/SystemDesignPractice.tsx`)
-* **Chronological Delivery Framework:** Guides candidates through a time-boxed 45-minute roadmap:
-  1. *Requirements & CAP Stance (5m)*
-  2. *Back-of-the-Envelope Estimations (5m)*
-  3. *API Endpoints & Storage Schema (7m)*
-  4. *Interactive Drag-and-Drop Architecture Canvas (13m)*
-  5. *Calibrated L4 / L5 / L6 Deep Dives (15m)*
-* **Interactive Whiteboard Canvas:** Drag nodes smoothly across the canvas, wire components with animated Cubic Bezier data-flow curves, or load the **FAANG Reference Topology** in one click.
-* **Automated Topology Linter (SPOF Detector):** Inspects your live graph for Single Points of Failure (e.g., missing Edge Gateway, missing Redis cache layer, or a Client connecting directly to a Database).
+* **11 Full Production Blueprints:**
+  1. *Ticketmaster / Stripe High-Concurrency Seat Reservation*
+  2. *Uber / Wolt Real-Time Geo-Spatial Dispatch (H3)*
+  3. *WhatsApp Global Chat Fanout & Presence*
+  4. *OpenAI / Anthropic LLM Inference & Disaggregated Prefill/Decode KV-Cache*
+  5. *Multi-Tenant Enterprise RAG & Real-Time Zanzibar ACL Sync*
+  6. *Dropbox / Google Drive Block-Level Delta Sync*
+  7. *LeetCode Sandboxed Online Judge & Live Leaderboard*
+  8. *Spotify Connect Multi-Device Playback Sync & Royalty Ledger (Stockholm)*
+  9. *Klarna / Vipps Real-Time BNPL Risk Engine & GDPR Crypto-Shredding Ledger*
+  10. *FINN.no / Vend Marketplaces (Vespa Search & Fiks Ferdig Escrow) & VG.no Varnish Edge (Schibsted)*
+  11. *Revolut Multi-Currency FX Exchange (30s Quote Lock) & Double-Entry Atomic Ledger*
+* **Interactive Whiteboard Canvas & Automated SPOF Linter:** Drag nodes smoothly across the canvas, wire components with animated Cubic Bezier data-flow curves, load the **Reference Topology** in one click, and run the automated **Single Point of Failure (SPOF) Linter**.
 
-### 3. Live AI Mock Interview Studio + Real Code Sandbox (`src/components/MockInterviewStudio.tsx`)
-* **Company-Specific Insider Grading Rubrics (`src/lib/data/companyRubrics.ts`):** Switch your AI Mock Interviewer between **Stripe** (*Production Pragmatism & Idempotency*), **OpenAI / Anthropic** (*GPU Roofline & Agentic Sandboxing*), **Amazon** (*Bar Raiser & 16 Leadership Principles*), **Meta** (*35-min 2-Problem Speed Coding & Planet-Scale Fanout*), and **Google** (*GCA & Progressive Constraint Mutation*), complete with Must-Hit Signals and Auto-Downgrade Red Flags.
-* **Real Sandboxed Code Runner (`/api/execute`):** Execute **JavaScript / TypeScript** (isolated Node `vm`) and **Python 3** against real test harnesses (`LRU Cache`, `Sliding Window Rate Limiter`, `Topological Sort`, `Merge Overlapping Intervals`, `Top-K Frequent Elements`), reporting real execution latency (`ms`) and return values.
-* **Voice Input & Interviewer TTS:** Speak answers out loud via Web Speech API and toggle voice synthesis for the AI interviewer.
+### 3. Live AI Mock Interview Studio: Animated AI Figure, Voice Call & Real Code Sandbox (`src/components/MockInterviewStudio.tsx` & `src/components/AiInterviewerStage.tsx`)
+* **Animated AI Interviewer Figure & Live Video-Call Stage (`AiInterviewerStage.tsx`):**
+  * Talk face-to-face with company-specific AI Interviewer personas (*Lukas Kazlauskas* at **Revolut**, *Henrik Solberg* at **FINN.no / Vend & VG**, *Astrid Lindholm* at **Spotify**, *Maja Virtanen* at **Klarna / Wolt**, *Marcus Vance* at **Stripe**, *Dr. Elena Rostova* at **OpenAI / Anthropic**, etc.).
+  * Features **real-time lip-sync (4 mouth viseme states)** synchronized to Web Speech synthesis, natural eye blinking, attentive listening nods, a live voice frequency equalizer, and a closed-caption teleprompter bar.
+  * Supports **Hands-Free Continuous Voice Call Mode** (speak into your mic and pause to auto-send your answer and hear the AI's immediate spoken follow-up probe) + optional **Candidate Self-View Webcam Picture-in-Picture (PiP)**.
+* **Real Sandboxed Code Runner (`/api/execute`):** Execute **JavaScript / TypeScript** (isolated Node `vm`) and **Python 3** against 6 real test harnesses including **Revolut's Live TDD Thread-Safe Load Balancer Registry**, `LRU Cache`, `Sliding Window Rate Limiter`, `Topological Sort`, `Merge Overlapping Intervals`, and `Top-K Frequent Elements`.
 
 ### 4. Visual Architecture & Coding Patterns Library (`src/components/VisualLibrary.tsx`)
 * **Interactive 0 → 10M+ Users Architecture Slider:** Step through 5 progressive scaling stages with live P95 latency, availability SLA, and max QPS metrics.
 * **Algorithmic Pointer & Stack Visualizer:** Step forward and backward through *Dynamic Sliding Window*, *Monotonic Decreasing Stack*, and *Converging Two Pointers* array state transitions.
 
-### 5. Crowdsourced Company Question Bank & Automated Live Scraper (`src/components/QuestionBank.tsx`)
-* **Verified Company Questions:** Browse and filter recently asked onsite questions from **OpenAI**, **Stripe**, **Uber**, **Anthropic**, **Meta**, **Google**, **Databricks**, **Netflix**, **Airbnb**, and **Apple**.
-* **Automated Live Community Feed Scraper & Post Extractor (`/api/ingest-questions`):** Syncs public interview experiences from **Hacker News Algolia API**, **r/ExperiencedDevs**, **r/leetcode**, and verified onsite feeds, or extracts structured `{ company, level, roundType, rubricSignal }` rows from any raw unstructured Reddit/Blind/LeetCode Discuss post directly into SQLite.
-* **Annotated L6 Walkthrough & Peer Rubric:** Inspect timestamped Hiring Committee commentary or use the reciprocal **Peer Interviewer Grading Checklist** (Pramp / Aced Practice style).
+### 5. Crowdsourced Company Question Bank, Annotated Walkthroughs & Live Scraper (`src/components/QuestionBank.tsx`)
+* **Verified Company Questions & Nordic Hub Filter:** Filter 25+ verified onsite questions across **Revolut**, **FINN.no / Vend**, **Blocket / Tori**, **VG / Schibsted**, **Spotify**, **Klarna**, **Wolt**, **Sana Labs**, **Cognite**, **Oura**, **OpenAI**, **Anthropic**, **Stripe**, **Uber**, **Meta**, and **Google**.
+* **Annotated Onsite Walkthroughs & Applicant Post-Mortems:** Read timestamped Hiring Committee transcripts for **Revolut (Live TDD + FX Ledger)**, **FINN.no / Vend & VG.no (Fiks Ferdig Escrow + Varnish 300k QPS Spike)**, **Spotify (Production Case Study + Band Manifesto)**, **Wolt (Take-Home Live Defense)**, and **Stripe (L6 Ledger Idempotency)**.
+* **Automated Live Community Feed Scraper & Post Extractor (`/api/ingest-questions`):** Syncs public interview experiences from **Hacker News Algolia API** and verified onsite feeds, or extracts structured questions from raw Reddit/Blind/LeetCode Discuss posts into SQLite.
 
 ### 6. Job Application Kanban CRM, STAR Matrix & Chrome Extension (`src/components/JobTrackerCrm.tsx`)
-* **Kanban Pipeline + 1-Click JD Clipper:** Paste any raw Job Description to automatically extract the company, role, level (`L4`–`L6`), live ATS match %, and linked System Design prep card onto your board.
-* **1-Click Chrome Extension Clipper (`chrome-extension/` + `/api/extension/clip`):** Loadable Manifest V3 Chrome extension that clips Job Descriptions or Onsite Interview Questions from LinkedIn, Greenhouse, Workday, or Lever directly into your local SQLite database and returns an instant ATS Match Score.
-* **Behavioral STAR Story Bank:** Maintain leadership stories mapped to *Conflict Resolution*, *Ambiguity*, *Technical Complexity*, and *Speed vs. Quality*.
+* **Kanban Pipeline + 1-Click JD Clipper:** Track applications across US and Nordic/European roles (`SEK`, `NOK`, `EUR`, `USD`) with automatic ATS match scoring.
+* **1-Click Chrome Extension Clipper (`chrome-extension/` + `/api/extension/clip`):** Loadable Manifest V3 Chrome extension that clips Job Descriptions or Onsite Interview Questions from LinkedIn, Greenhouse, Workday, Jobylon, or Teamtailor directly into your local SQLite database.
 
 ---
 
-## 🛠️ Tech Stack & Architecture
-
-* **Framework:** Next.js 15 (App Router) + React 19 + TypeScript
-* **Styling:** Tailwind CSS v4 + Lucide Icons (Progressive Disclosure dark UI)
-* **AI & Evaluation Engine:** Hybrid architecture—works **100% out-of-the-box** using the deterministic FAANG Rubric & ATS Engine (`src/lib/engines/`), with optional live API key integration for **Google Gemini**, **OpenAI GPT-4o**, or **Anthropic Claude** (`/api/ai`).
-* **Persistence & Relational Database:** Powered by **SQLite 3 (`node:sqlite` in WAL mode)** at `data/interview_os.sqlite` with 8 normalized tables (`users`, `system_design_problems`, `coding_problems`, `question_bank`, `job_applications`, `star_stories`, `practice_sessions`, `resume_scans`), automatic schema migration/seeding, and an interactive **SQLite Relational DB Inspector** in the sidebar.
+## 🛠️ Project Structure
 
 ```text
-├── chrome-extension/              # Loadable Manifest V3 Chrome Extension Clipper
+├── start.sh                          # All-in-one Bash bootstrap & launch script
+├── chrome-extension/                 # Loadable Manifest V3 Chrome Extension Clipper
 │   ├── manifest.json
 │   ├── popup.html
 │   └── popup.js
@@ -86,36 +129,21 @@ flowchart LR
     │   ├── Navbar.tsx                    # Left sidebar, L4-L6 bar, SQLite DB Inspector & AI modal
     │   ├── AtsResumeLab.tsx              # 3-step ATS scanner, vendor calibration & XYZ rewriter
     │   ├── SystemDesignPractice.tsx      # 5-step guided practice & drag-and-drop canvas
-    │   ├── MockInterviewStudio.tsx       # Voice/text AI mock studio, company rubrics & code runner
+    │   ├── MockInterviewStudio.tsx       # AI mock studio, company rubrics & live code runner
+    │   ├── AiInterviewerStage.tsx        # Animated AI Interviewer Figure, lip-sync & webcam PiP
     │   ├── VisualLibrary.tsx             # Interactive 0->10M scaling & coding pattern stepper
-    │   ├── QuestionBank.tsx              # Question bank, live scraper & peer mode
+    │   ├── QuestionBank.tsx              # Question bank, Nordic walkthroughs & live scraper
     │   └── JobTrackerCrm.tsx             # Kanban CRM, 1-click JD clipper & STAR story bank
     └── lib/
         ├── types.ts
         ├── server/
         │   └── sqliteDb.ts               # SQLite 3 WAL engine, 8-table schema & auto-seeding
         ├── data/
-        │   ├── companyRubrics.ts         # Insider company rubrics & corporate ATS vendor profiles
-        │   ├── systemDesignProblems.ts
+        │   ├── companyRubrics.ts         # Insider company rubrics & corporate/Nordic ATS profiles
+        │   ├── systemDesignProblems.ts   # 11 full 5-step System Design blueprints
         │   ├── visualLibraryData.ts
-        │   └── mockInterviewData.ts
+        │   └── mockInterviewData.ts      # Coding sandbox problems, verified questions & CRM cards
         └── engines/
             ├── atsEngine.ts
             └── aiEvaluationEngine.ts
 ```
-
----
-
-## ⚡ Getting Started
-
-### 1. Install dependencies
-```bash
-npm install
-```
-
-### 2. Start the development server
-```bash
-npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) in your browser.
