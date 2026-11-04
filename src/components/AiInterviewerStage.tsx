@@ -196,6 +196,9 @@ interface AiInterviewerStageProps {
   liveTranscriptPreview: string;
   clarityScore: number;
   depthScore: number;
+  wpmPace?: number;
+  fillerWordCount?: number;
+  metricSignalCount?: number;
   onToggleTts: () => void;
   onToggleMic: () => void;
   onToggleHandsFree: () => void;
@@ -215,6 +218,9 @@ export default function AiInterviewerStage({
   liveTranscriptPreview,
   clarityScore,
   depthScore,
+  wpmPace = 142,
+  fillerWordCount = 0,
+  metricSignalCount = 3,
   onToggleTts,
   onToggleMic,
   onToggleHandsFree,
@@ -756,7 +762,7 @@ export default function AiInterviewerStage({
         )}
 
         {/* Live Telemetry Overlay (Top Left of Stage) */}
-        <div className="absolute top-3 left-3 hidden sm:flex flex-col gap-1 bg-slate-950/80 border border-slate-800/90 rounded-xl p-2.5 text-[10px]">
+        <div className="absolute top-3 left-3 hidden sm:flex flex-col gap-1 bg-slate-950/85 border border-slate-800/90 rounded-xl p-2.5 text-[10px]">
           <div className="text-slate-400 font-semibold uppercase">Live Rubric Signal</div>
           <div className="flex items-center justify-between gap-3 text-slate-200">
             <span>Clarity:</span>
@@ -765,6 +771,42 @@ export default function AiInterviewerStage({
           <div className="flex items-center justify-between gap-3 text-slate-200">
             <span>Tech Depth:</span>
             <strong className="text-emerald-300">{depthScore}%</strong>
+          </div>
+          <div className="flex items-center justify-between gap-3 text-slate-200">
+            <span>Quant Metrics:</span>
+            <strong className="text-cyan-300">{metricSignalCount} cited</strong>
+          </div>
+        </div>
+
+        {/* Speech Pacing & Filler-Word Telemetry Overlay (Top Right of Stage) */}
+        <div className="absolute top-3 right-3 hidden sm:flex flex-col gap-1 bg-slate-950/85 border border-slate-800/90 rounded-xl p-2.5 text-[10px]">
+          <div className="text-slate-400 font-semibold uppercase">Voice & Delivery Coach</div>
+          <div className="flex items-center justify-between gap-3 text-slate-200">
+            <span>Speaking Pace:</span>
+            <strong
+              className={
+                wpmPace > 175 || wpmPace < 100
+                  ? "text-amber-300"
+                  : "text-emerald-300"
+              }
+            >
+              {wpmPace} WPM{" "}
+              {wpmPace > 175 ? "(Fast)" : wpmPace < 100 ? "(Slow)" : "(Ideal)"}
+            </strong>
+          </div>
+          <div className="flex items-center justify-between gap-3 text-slate-200">
+            <span>Filler Words:</span>
+            <strong
+              className={
+                fillerWordCount === 0
+                  ? "text-emerald-300"
+                  : fillerWordCount <= 2
+                  ? "text-amber-300"
+                  : "text-rose-400"
+              }
+            >
+              {fillerWordCount === 0 ? "0 (Crisp)" : `${fillerWordCount} ("um/like")`}
+            </strong>
           </div>
         </div>
 

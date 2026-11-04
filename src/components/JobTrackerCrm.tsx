@@ -5,12 +5,14 @@ import {
   ArrowRight,
   BookOpen,
   Briefcase,
+  Calculator,
   CheckCircle2,
   ClipboardPaste,
   Database,
   Plus,
   Sparkles
 } from "lucide-react";
+import NordicOfferComparator from "./NordicOfferComparator";
 import {
   INITIAL_JOB_CARDS,
   INITIAL_STAR_STORIES
@@ -43,7 +45,7 @@ export default function JobTrackerCrm({
   resumeText = "",
   onDatabaseMutated
 }: JobTrackerCrmProps) {
-  const [subView, setSubView] = useState<"kanban" | "star">("kanban");
+  const [subView, setSubView] = useState<"kanban" | "star" | "offer_calc">("kanban");
   const [jobs, setJobs] = useState<JobApplicationCard[]>(INITIAL_JOB_CARDS);
   const [stories, setStories] = useState<StarStory[]>(INITIAL_STAR_STORIES);
   const [dbSynced, setDbSynced] = useState(false);
@@ -229,6 +231,17 @@ export default function JobTrackerCrm({
           >
             <BookOpen className="w-3.5 h-3.5" />
             <span>STAR Story Bank ({stories.length})</span>
+          </button>
+          <button
+            onClick={() => setSubView("offer_calc")}
+            className={`px-3.5 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 cursor-pointer ${
+              subView === "offer_calc"
+                ? "bg-emerald-600 text-white"
+                : "text-emerald-300 hover:text-white"
+            }`}
+          >
+            <Calculator className="w-3.5 h-3.5" />
+            <span>Nordic & EU Offer Comparator</span>
           </button>
         </div>
       </div>
@@ -457,6 +470,9 @@ export default function JobTrackerCrm({
           </div>
         </div>
       )}
+
+      {/* SUB-VIEW 3: NORDIC & EUROPEAN OFFER & TAX COMPARATOR */}
+      {subView === "offer_calc" && <NordicOfferComparator />}
     </div>
   );
 }

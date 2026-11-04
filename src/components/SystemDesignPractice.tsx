@@ -141,6 +141,10 @@ export default function SystemDesignPractice({
   const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState<{ dx: number; dy: number }>({ dx: 0, dy: 0 });
 
+  // Live Traffic & Chaos Monkey Simulator State
+  const [trafficMultiplier, setTrafficMultiplier] = useState<1 | 10 | 50>(1);
+  const [chaosKilledNodeId, setChaosKilledNodeId] = useState<string | null>(null);
+
   useEffect(() => {
     if (!timerRunning) return;
     const interval = setInterval(() => {
@@ -155,6 +159,8 @@ export default function SystemDesignPractice({
     setEvaluations({});
     setShowReferenceHint(false);
     setConnectingFromId(null);
+    setTrafficMultiplier(1);
+    setChaosKilledNodeId(null);
     setSecondsLeft(45 * 60);
     setStageInputs({
       requirements: "",
@@ -250,6 +256,71 @@ export default function SystemDesignPractice({
   };
 
   const topologyDiagnostics = runTopologyDiagnostics();
+
+  // Compute Live Traffic & Chaos Monkey Telemetry across Canvas Nodes
+  const activeAliveNodes = canvasNodes.filter((n) => n.id !== chaosKilledNodeId);
+  const hasAliveEdge = activeAliveNodes.some((n) => n.category === "edge");
+  const hasAliveCache = activeAliveNodes.some((n) => n.category === "cache");
+  const hasAliveQueue = activeAliveNodes.some((n) => n.category === "queue");
+
+  const getNodeLoadPct = (node: CanvasNode): number => {
+    if (node.id === chaosKilledNodeId) return 0;
+    const base =
+      node.category === "client"
+        ? 18
+        : node.category === "edge"
+        ? 24
+        : node.category === "cache"
+        ? 28
+        : node.category === "queue"
+        ? 22
+        : node.category === "compute"
+        ? 34
+        : 38;
+
+    const spikeFactor =
+      trafficMultiplier === 1 ? 1 : trafficMultiplier === 10 ? 1.85 : 3.1;
+
+    let raw = base * spikeFactor;
+
+    // If database/compute lacks Edge Shield or Redis Cache during 10x/50x spike, it saturates!
+    if (node.category === "database") {
+      if (hasAliveCache && hasAliveEdge) {
+        raw = raw * 0.42; // 90%+ cache hit ratio shields DB
+      } else if (hasAliveCache || hasAliveEdge) {
+        raw = raw * 0.72;
+      } else {
+        raw = raw * 1.35; // Unshielded origin meltdown!
+      }
+      if (hasAliveQueue) {
+        raw = raw * 0.82; // Kafka outbox smooths write bursts
+      }
+    }
+
+    if (node.category === "compute" && !hasAliveEdge && trafficMultiplier > 1) {
+      raw = raw * 1.25;
+    }
+
+    return Math.min(100, Math.round(raw));
+  };
+
+  const maxDbLoad = Math.max(
+    0,
+    ...activeAliveNodes
+      .filter((n) => n.category === "database" || n.category === "compute")
+      .map(getNodeLoadPct)
+  );
+  const simulatedQps = 6000 * trafficMultiplier;
+  const simulatedP99Ms =
+    maxDbLoad >= 95
+      ? 2850
+      : maxDbLoad >= 80
+      ? 420
+      : hasAliveCache && hasAliveEdge
+      ? 24 + trafficMultiplier
+      : 95 + trafficMultiplier * 4;
+  const simulatedDropPct =
+    maxDbLoad >= 98 ? 34.5 : maxDbLoad >= 90 ? 6.2 : 0;
 
   const handleInsertSampleAnswer = () => {
     let sample = "";
@@ -506,6 +577,78 @@ export default function SystemDesignPractice({
             ))}
           </div>
 
+          {/* LIVE TRAFFIC SPIKE & CHAOS MONKEY SIMULATOR BAR */}
+          <div className="p-3 rounded-xl bg-slate-950/90 border border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-bold text-cyan-300 flex items-center gap-1">
+                <Zap className="w-3.5 h-3.5 text-amber-400" />
+                <span>Live Load Test:</span>
+              </span>
+              {(
+                [
+                  { mult: 1, label: "1x Normal (6k QPS)" },
+                  { mult: 10, label: "10x Peak (60k QPS)" },
+                  { mult: 50, label: "50x VG / Flash Spike (300k QPS)" }
+                ] as const
+              ).map((item) => (
+                <button
+                  key={item.mult}
+                  onClick={() => setTrafficMultiplier(item.mult)}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border cursor-pointer transition-all ${
+                    trafficMultiplier === item.mult
+                      ? item.mult === 50
+                        ? "bg-rose-600/30 border-rose-400 text-rose-200"
+                        : "bg-indigo-600 text-white border-indigo-400"
+                      : "bg-slate-900 border-slate-800 text-slate-400 hover:text-white"
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3 text-[11px]">
+              <span className="text-slate-300">
+                Throughput:{" "}
+                <strong className="text-white">
+                  {simulatedQps.toLocaleString()} QPS
+                </strong>
+              </span>
+              <span className="text-slate-300">
+                Est. P99:{" "}
+                <strong
+                  className={
+                    simulatedP99Ms > 500
+                      ? "text-rose-400"
+                      : simulatedP99Ms > 180
+                      ? "text-amber-300"
+                      : "text-emerald-400"
+                  }
+                >
+                  {simulatedP99Ms} ms
+                </strong>
+              </span>
+              <span className="text-slate-300">
+                Dropped:{" "}
+                <strong
+                  className={
+                    simulatedDropPct > 0 ? "text-rose-400" : "text-emerald-400"
+                  }
+                >
+                  {simulatedDropPct}%
+                </strong>
+              </span>
+              {chaosKilledNodeId && (
+                <button
+                  onClick={() => setChaosKilledNodeId(null)}
+                  className="px-2 py-0.5 rounded bg-rose-500/20 border border-rose-500/40 text-rose-200 font-semibold cursor-pointer"
+                >
+                  Heal Killed Node
+                </button>
+              )}
+            </div>
+          </div>
+
           {connectingFromId && (
             <div className="px-3 py-1.5 rounded-lg bg-indigo-500/20 border border-indigo-500/40 text-xs text-indigo-200 flex items-center justify-between">
               <span>
@@ -574,8 +717,21 @@ export default function SystemDesignPractice({
                       strokeWidth="2.2"
                       markerEnd="url(#arrowhead)"
                     />
-                    <circle r="3.5" fill="#38bdf8">
-                      <animateMotion dur="2.4s" repeatCount="indefinite" path={pathData} />
+                    <circle
+                      r={trafficMultiplier === 50 ? "4.5" : "3.5"}
+                      fill={simulatedDropPct > 0 ? "#fb7185" : "#38bdf8"}
+                    >
+                      <animateMotion
+                        dur={
+                          trafficMultiplier === 50
+                            ? "0.65s"
+                            : trafficMultiplier === 10
+                            ? "1.2s"
+                            : "2.4s"
+                        }
+                        repeatCount="indefinite"
+                        path={pathData}
+                      />
                     </circle>
                     {edge.protocol && (
                       <g
@@ -604,36 +760,74 @@ export default function SystemDesignPractice({
             {/* Draggable Node Cards */}
             {canvasNodes.map((node) => {
               const isConnectingSource = connectingFromId === node.id;
+              const isChaosKilled = chaosKilledNodeId === node.id;
+              const nodeLoadPct = getNodeLoadPct(node);
               return (
                 <div
                   key={node.id}
                   onPointerDown={(e) => handleNodePointerDown(e, node)}
                   style={{ left: `${node.x}px`, top: `${node.y}px` }}
-                  className={`absolute w-[178px] p-2.5 rounded-xl border shadow-lg backdrop-blur-md cursor-grab active:cursor-grabbing transition-shadow ${
+                  className={`absolute w-[184px] p-2.5 rounded-xl border shadow-lg backdrop-blur-md cursor-grab active:cursor-grabbing transition-all ${
                     isConnectingSource ? "ring-2 ring-cyan-400 " : ""
-                  }${getCategoryStyles(node.category)}`}
+                  }${
+                    isChaosKilled
+                      ? "bg-rose-950/90 border-rose-500 text-rose-200 opacity-75"
+                      : nodeLoadPct >= 95
+                      ? "ring-2 ring-rose-500 animate-pulse " + getCategoryStyles(node.category)
+                      : getCategoryStyles(node.category)
+                  }`}
                 >
                   <div className="flex items-center justify-between gap-1 mb-0.5">
                     <div className="flex items-center gap-1 truncate">
                       <Move className="w-3 h-3 opacity-60 shrink-0" />
                       <span className="text-[11px] font-bold truncate">{node.label}</span>
                     </div>
-                    <button
-                      onPointerDown={(e) => e.stopPropagation()}
-                      onClick={() => {
-                        setCanvasNodes((prev) => prev.filter((n) => n.id !== node.id));
-                        setCanvasEdges((prev) =>
-                          prev.filter((e) => e.from !== node.id && e.to !== node.id)
-                        );
-                      }}
-                      className="opacity-60 hover:opacity-100 text-rose-300 cursor-pointer"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onClick={() =>
+                          setChaosKilledNodeId((prev) =>
+                            prev === node.id ? null : node.id
+                          )
+                        }
+                        title="Chaos Monkey: Simulate Node Outage / Failover"
+                        className={`px-1 rounded text-[9px] font-bold cursor-pointer ${
+                          isChaosKilled
+                            ? "bg-emerald-500 text-slate-950"
+                            : "bg-black/40 hover:bg-rose-500/40 text-amber-300"
+                        }`}
+                      >
+                        {isChaosKilled ? "Heal" : "Kill"}
+                      </button>
+                      <button
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onClick={() => {
+                          setCanvasNodes((prev) => prev.filter((n) => n.id !== node.id));
+                          setCanvasEdges((prev) =>
+                            prev.filter((e) => e.from !== node.id && e.to !== node.id)
+                          );
+                        }}
+                        className="opacity-60 hover:opacity-100 text-rose-300 cursor-pointer"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
                   </div>
                   <div className="text-[10px] opacity-80 truncate">{node.sublabel}</div>
                   <div className="flex items-center justify-between mt-1.5 pt-1 border-t border-white/10 text-[9px]">
-                    <span className="uppercase opacity-75">{node.category}</span>
+                    <span
+                      className={`font-mono font-bold ${
+                        isChaosKilled
+                          ? "text-rose-300"
+                          : nodeLoadPct >= 90
+                          ? "text-rose-300"
+                          : nodeLoadPct >= 75
+                          ? "text-amber-200"
+                          : "text-emerald-300"
+                      }`}
+                    >
+                      {isChaosKilled ? "OFFLINE (CHAOS)" : `CPU ${nodeLoadPct}%`}
+                    </span>
                     <button
                       onPointerDown={(e) => e.stopPropagation()}
                       onClick={() => handlePortClick(node.id)}

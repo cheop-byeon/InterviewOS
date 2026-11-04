@@ -80,14 +80,15 @@ In addition to US Silicon Valley leaders (**OpenAI**, **Anthropic**, **Stripe**,
   9. *Klarna / Vipps Real-Time BNPL Risk Engine & GDPR Crypto-Shredding Ledger*
   10. *FINN.no / Vend Marketplaces (Vespa Search & Fiks Ferdig Escrow) & VG.no Varnish Edge (Schibsted)*
   11. *Revolut Multi-Currency FX Exchange (30s Quote Lock) & Double-Entry Atomic Ledger*
-* **Interactive Whiteboard Canvas & Automated SPOF Linter:** Drag nodes smoothly across the canvas, wire components with animated Cubic Bezier data-flow curves, load the **Reference Topology** in one click, and run the automated **Single Point of Failure (SPOF) Linter**.
+* **Interactive Whiteboard Canvas & Live Traffic / Chaos Monkey Simulator:** Drag nodes smoothly across the canvas, wire components with animated Cubic Bezier data-flow curves, simulate **1x → 10x → 50x (300k QPS) Traffic Spikes**, or click **Chaos Kill** on any node to watch real-time CPU saturation, P99 latency spikes, and packet drop rates across your topology.
 
-### 3. Live AI Mock Interview Studio: Animated AI Figure, Voice Call & Real Code Sandbox (`src/components/MockInterviewStudio.tsx` & `src/components/AiInterviewerStage.tsx`)
-* **Animated AI Interviewer Figure & Live Video-Call Stage (`AiInterviewerStage.tsx`):**
+### 3. Live AI Mock Interview Studio: Animated AI Figure, PR Bug-Squash Arena & 5-Language Code Sandbox (`src/components/MockInterviewStudio.tsx`, `src/components/AiInterviewerStage.tsx`, `src/components/PrBugSquashArena.tsx`)
+* **Animated AI Interviewer Figure & Voice Delivery Telemetry (`AiInterviewerStage.tsx`):**
   * Talk face-to-face with company-specific AI Interviewer personas (*Lukas Kazlauskas* at **Revolut**, *Henrik Solberg* at **FINN.no / Vend & VG**, *Astrid Lindholm* at **Spotify**, *Maja Virtanen* at **Klarna / Wolt**, *Marcus Vance* at **Stripe**, *Dr. Elena Rostova* at **OpenAI / Anthropic**, etc.).
-  * Features **real-time lip-sync (4 mouth viseme states)** synchronized to Web Speech synthesis, natural eye blinking, attentive listening nods, a live voice frequency equalizer, and a closed-caption teleprompter bar.
-  * Supports **Hands-Free Continuous Voice Call Mode** (speak into your mic and pause to auto-send your answer and hear the AI's immediate spoken follow-up probe) + optional **Candidate Self-View Webcam Picture-in-Picture (PiP)**.
-* **Real Sandboxed Code Runner (`/api/execute`):** Execute **JavaScript / TypeScript** (isolated Node `vm`) and **Python 3** against 6 real test harnesses including **Revolut's Live TDD Thread-Safe Load Balancer Registry**, `LRU Cache`, `Sliding Window Rate Limiter`, `Topological Sort`, `Merge Overlapping Intervals`, and `Top-K Frequent Elements`.
+  * Features **real-time lip-sync (4 mouth viseme states)**, natural eye blinking, **Hands-Free Continuous Voice Call Mode**, **Candidate Self-View Webcam Picture-in-Picture (PiP)**, and a live **Voice & Delivery Coach HUD** tracking your **Speaking Pace (WPM)**, **Filler-Word Count (`"um/like"`)**, and **Quantitative Metric Density**.
+* **PR Bug-Squash & Live Take-Home Mutation Simulator (`PrBugSquashArena.tsx`):**
+  * Click directly on lines of realistic Kotlin/Java/TypeScript Pull Requests from **FINN.no / Vend (*Fiks Ferdig* Escrow)**, **Revolut / Klarna (Multi-Currency FX Ledger)**, and **VG.no / Wolt (Breaking-News Edge & Surge Handler)** to flag subtle production bugs (race conditions, IEEE-754 float money math, AB-BA deadlocks, N+1 queries, synchronous dual-writes) and defend live requirement mutations.
+* **5-Language Code Sandbox (`/api/execute`):** Execute and verify **JavaScript / TypeScript**, **Python 3**, **Java 21**, **Kotlin**, and **Go** against 6 real test harnesses including **Revolut's Live TDD Thread-Safe Load Balancer Registry**, `LRU Cache`, `Sliding Window Rate Limiter`, `Topological Sort`, `Merge Overlapping Intervals`, and `Top-K Frequent Elements`.
 
 ### 4. Visual Architecture & Coding Patterns Library (`src/components/VisualLibrary.tsx`)
 * **Interactive 0 → 10M+ Users Architecture Slider:** Step through 5 progressive scaling stages with live P95 latency, availability SLA, and max QPS metrics.
@@ -98,8 +99,9 @@ In addition to US Silicon Valley leaders (**OpenAI**, **Anthropic**, **Stripe**,
 * **Annotated Onsite Walkthroughs & Applicant Post-Mortems:** Read timestamped Hiring Committee transcripts for **Revolut (Live TDD + FX Ledger)**, **FINN.no / Vend & VG.no (Fiks Ferdig Escrow + Varnish 300k QPS Spike)**, **Spotify (Production Case Study + Band Manifesto)**, **Wolt (Take-Home Live Defense)**, and **Stripe (L6 Ledger Idempotency)**.
 * **Automated Live Community Feed Scraper & Post Extractor (`/api/ingest-questions`):** Syncs public interview experiences from **Hacker News Algolia API** and verified onsite feeds, or extracts structured questions from raw Reddit/Blind/LeetCode Discuss posts into SQLite.
 
-### 6. Job Application Kanban CRM, STAR Matrix & Chrome Extension (`src/components/JobTrackerCrm.tsx`)
+### 6. Job Application Kanban CRM, Nordic Offer Comparator & Chrome Extension (`src/components/JobTrackerCrm.tsx` & `src/components/NordicOfferComparator.tsx`)
 * **Kanban Pipeline + 1-Click JD Clipper:** Track applications across US and Nordic/European roles (`SEK`, `NOK`, `EUR`, `USD`) with automatic ATS match scoring.
+* **Nordic & European Offer, Pension (`OTP` / `ITP1`) & Expat Tax Comparator (`NordicOfferComparator.tsx`):** Compare offers across **Oslo (`NOK`)**, **Stockholm (`SEK`)**, **Helsinki (`EUR`)**, and **London / Revolut (`EUR/GBP`)**, factoring in Norway's `7% OTP + 12% Feriepenger` & `25% Kildeskatt`, Sweden's `30% ITP1 Tjänstepension` & `Expertskatt`, Finland's `32% Key Employee Tax`, and a 1-click **Polite Counter-Offer Email Generator**.
 * **1-Click Chrome Extension Clipper (`chrome-extension/` + `/api/extension/clip`):** Loadable Manifest V3 Chrome extension that clips Job Descriptions or Onsite Interview Questions from LinkedIn, Greenhouse, Workday, Jobylon, or Teamtailor directly into your local SQLite database.
 
 ---

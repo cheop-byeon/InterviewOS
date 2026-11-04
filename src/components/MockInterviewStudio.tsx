@@ -18,6 +18,7 @@ import {
 import AiInterviewerStage, {
   INTERVIEWER_PERSONAS
 } from "./AiInterviewerStage";
+import PrBugSquashArena from "./PrBugSquashArena";
 import { CODING_PROBLEMS } from "../lib/data/mockInterviewData";
 import { COMPANY_INSIDER_RUBRICS } from "../lib/data/companyRubrics";
 import { SYSTEM_DESIGN_PROBLEMS } from "../lib/data/systemDesignProblems";
@@ -68,9 +69,10 @@ export default function MockInterviewStudio({
   const [selectedSysId, setSelectedSysId] = useState<string>(
     SYSTEM_DESIGN_PROBLEMS[0].id
   );
-  const [codeLanguage, setCodeLanguage] = useState<"javascript" | "python">(
-    "javascript"
-  );
+  const [codeLanguage, setCodeLanguage] = useState<
+    "javascript" | "python" | "java" | "kotlin" | "go"
+  >("javascript");
+  const [showPrArena, setShowPrArena] = useState<boolean>(false);
   const [selectedCompanyLoopId, setSelectedCompanyLoopId] =
     useState<string>("stripe");
   const [showInsiderRubric, setShowInsiderRubric] = useState<boolean>(false);
@@ -125,15 +127,129 @@ export default function MockInterviewStudio({
   const [showVideoAvatar, setShowVideoAvatar] = useState<boolean>(true);
   const [liveTranscriptPreview, setLiveTranscriptPreview] =
     useState<string>("");
+  const [voiceTelemetry, setVoiceTelemetry] = useState<{
+    wpm: number;
+    fillers: number;
+    metrics: number;
+  }>({ wpm: 142, fillers: 0, metrics: 3 });
   const speechTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const getStarterCodeForLanguage = (
+    lang: "javascript" | "python" | "java" | "kotlin" | "go"
+  ): string => {
+    if (lang === "python") return currentCoding.starterCodePy;
+    if (lang === "javascript") return currentCoding.starterCode;
+    if (lang === "java") {
+      return `// Java 21 (Revolut / FINN.no / Spotify / Klarna Production Template)
+import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+
+public class Solution {
+    private final int maxCapacity;
+    private final List<String> instances = new ArrayList<>();
+    private final Map<String, Integer> indexMap = new HashMap<>();
+    private final ReentrantReadWriteLock rwLock = new ReentrantReadWriteLock();
+    private final AtomicInteger cursor = new AtomicInteger(0);
+
+    public Solution(int maxCapacity) {
+        this.maxCapacity = maxCapacity;
+    }
+
+    public boolean register(String key) {
+        rwLock.writeLock().lock();
+        try {
+            if (key == null || indexMap.containsKey(key) || instances.size() >= maxCapacity) {
+                return false;
+            }
+            indexMap.put(key, instances.size());
+            instances.add(key);
+            return true;
+        } finally {
+            rwLock.writeLock().unlock();
+        }
+    }
+
+    public String nextRoundRobin() {
+        rwLock.readLock().lock();
+        try {
+            if (instances.isEmpty()) return null;
+            int idx = Math.floorMod(cursor.getAndIncrement(), instances.size());
+            return instances.get(idx);
+        } finally {
+            rwLock.readLock().unlock();
+        }
+    }
+}`;
+    }
+    if (lang === "kotlin") {
+      return `// Kotlin (FINN.no / Vend / Wolt / Schibsted / Klarna Template)
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.locks.ReentrantReadWriteLock
+import kotlin.concurrent.read
+import kotlin.concurrent.write
+
+class Solution(private val maxCapacity: Int = 10) {
+    private val instances = mutableListOf<String>()
+    private val indexMap = hashMapOf<String, Int>()
+    private val lock = ReentrantReadWriteLock()
+    private val cursor = AtomicInteger(0)
+
+    fun register(address: String): Boolean = lock.write {
+        if (address.isBlank() || indexMap.containsKey(address) || instances.size >= maxCapacity) {
+            return false
+        }
+        indexMap[address] = instances.size
+        instances.add(address)
+        true
+    }
+
+    fun nextRoundRobin(): String? = lock.read {
+        if (instances.isEmpty()) return null
+        val idx = Math.floorMod(cursor.getAndIncrement(), instances.size)
+        instances[idx]
+    }
+}`;
+    }
+    return `// Go 1.23 (FINN.no / Schibsted / Uber / Cloudflare Concurrent Template)
+package main
+
+import (
+	"sync"
+	"sync/atomic"
+)
+
+type Solution struct {
+	mu          sync.RWMutex
+	maxCapacity int
+	instances   []string
+	indexMap    map[string]int
+	cursor      uint64
+}
+
+func NewSolution(maxCapacity int) *Solution {
+	return &Solution{
+		maxCapacity: maxCapacity,
+		indexMap:    make(map[string]int),
+	}
+}
+
+func (s *Solution) Register(addr string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, exists := s.indexMap[addr]; exists || len(s.instances) >= s.maxCapacity {
+		return false
+	}
+	s.indexMap[addr] = len(s.instances)
+	s.instances = append(s.instances, addr)
+	return true
+}`;
+  };
+
   useEffect(() => {
-    setCodeValue(
-      codeLanguage === "python"
-        ? currentCoding.starterCodePy
-        : currentCoding.starterCode
-    );
+    setCodeValue(getStarterCodeForLanguage(codeLanguage));
     setTestRunResults(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentCoding, codeLanguage]);
 
   useEffect(() => {
@@ -359,6 +475,29 @@ export default function MockInterviewStudio({
       depth: localTurn.depth,
       coachHint: localTurn.coachHint
     });
+
+    // Compute Voice Delivery Telemetry (WPM, Filler Words, Quantitative Metric Signals)
+    const wordsArr = userText.split(/\s+/).filter(Boolean);
+    const fillerMatches =
+      userText
+        .toLowerCase()
+        .match(/\b(um|uh|like|basically|literally|you know|sort of|kind of)\b/g) || [];
+    const metricMatches =
+      userText
+        .toLowerCase()
+        .match(
+          /\b(\d+ms|\d+s|\d+k|\d+m|\d+%|qps|tps|p99|p95|o\(1\)|o\(n|acid|idempoten|redis|kafka|vespa|varnish)\b/g
+        ) || [];
+    const estimatedWpm = Math.min(
+      188,
+      Math.max(108, 128 + Math.round(wordsArr.length * 0.65) - fillerMatches.length * 4)
+    );
+    setVoiceTelemetry({
+      wpm: estimatedWpm,
+      fillers: fillerMatches.length,
+      metrics: metricMatches.length
+    });
+
     setTurnCount((prev) => prev + 1);
     setIsSending(false);
     speakText(aiReplyText);
@@ -459,16 +598,19 @@ export default function MockInterviewStudio({
           {(
             [
               { id: "system_design", label: "System Design" },
-              { id: "coding", label: "Coding (Live Sandbox)" },
+              { id: "coding", label: "Coding (5-Lang Sandbox)" },
               { id: "behavioral", label: "Behavioral" },
               { id: "resume_jd", label: "Resume + JD" }
             ] as const
           ).map((m) => (
             <button
               key={m.id}
-              onClick={() => setMode(m.id)}
+              onClick={() => {
+                setShowPrArena(false);
+                setMode(m.id);
+              }}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                mode === m.id
+                !showPrArena && mode === m.id
                   ? "bg-indigo-600 text-white"
                   : "text-slate-400 hover:text-slate-200"
               }`}
@@ -476,6 +618,16 @@ export default function MockInterviewStudio({
               {m.label}
             </button>
           ))}
+          <button
+            onClick={() => setShowPrArena(true)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+              showPrArena
+                ? "bg-amber-500 text-slate-950 font-bold"
+                : "text-amber-300 hover:text-amber-200"
+            }`}
+          >
+            PR Bug-Squash & Take-Home
+          </button>
         </div>
       </div>
 
@@ -547,8 +699,10 @@ export default function MockInterviewStudio({
         )}
       </div>
 
-      {/* IF SCORECARD IS GENERATED: SHOW FOCUSED SCORECARD VIEW */}
-      {scorecard ? (
+      {/* IF PR BUG-SQUASH ARENA IS SELECTED */}
+      {showPrArena ? (
+        <PrBugSquashArena targetLevel={targetLevel} />
+      ) : scorecard ? (
         <div className="bg-slate-900/70 border border-indigo-500/40 rounded-2xl p-6 space-y-6">
           <div className="flex items-center justify-between border-b border-slate-800 pb-4">
             <div>
@@ -713,6 +867,9 @@ export default function MockInterviewStudio({
                   liveTranscriptPreview={liveTranscriptPreview}
                   clarityScore={liveSignal.clarity}
                   depthScore={liveSignal.depth}
+                  wpmPace={voiceTelemetry.wpm}
+                  fillerWordCount={voiceTelemetry.fillers}
+                  metricSignalCount={voiceTelemetry.metrics}
                   onToggleTts={() => {
                     const next = !ttsEnabled;
                     setTtsEnabled(next);
@@ -835,27 +992,28 @@ export default function MockInterviewStudio({
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <div className="flex bg-slate-950 p-1 rounded-lg border border-slate-800">
-                    <button
-                      onClick={() => setCodeLanguage("javascript")}
-                      className={`px-2.5 py-1 rounded text-[11px] font-semibold cursor-pointer ${
-                        codeLanguage === "javascript"
-                          ? "bg-indigo-600 text-white"
-                          : "text-slate-400 hover:text-white"
-                      }`}
-                    >
-                      JS / TS
-                    </button>
-                    <button
-                      onClick={() => setCodeLanguage("python")}
-                      className={`px-2.5 py-1 rounded text-[11px] font-semibold cursor-pointer ${
-                        codeLanguage === "python"
-                          ? "bg-indigo-600 text-white"
-                          : "text-slate-400 hover:text-white"
-                      }`}
-                    >
-                      Python 3
-                    </button>
+                  <div className="flex flex-wrap bg-slate-950 p-1 rounded-lg border border-slate-800 gap-0.5">
+                    {(
+                      [
+                        { id: "javascript", label: "JS / TS" },
+                        { id: "python", label: "Python 3" },
+                        { id: "java", label: "Java 21" },
+                        { id: "kotlin", label: "Kotlin" },
+                        { id: "go", label: "Go" }
+                      ] as const
+                    ).map((lang) => (
+                      <button
+                        key={lang.id}
+                        onClick={() => setCodeLanguage(lang.id)}
+                        className={`px-2 py-1 rounded text-[11px] font-semibold cursor-pointer ${
+                          codeLanguage === lang.id
+                            ? "bg-indigo-600 text-white"
+                            : "text-slate-400 hover:text-white"
+                        }`}
+                      >
+                        {lang.label}
+                      </button>
+                    ))}
                   </div>
 
                   <button
